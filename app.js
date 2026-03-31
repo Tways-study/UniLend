@@ -140,11 +140,7 @@ if (currentPage === "login") {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      if (error.message?.toLowerCase().includes("email not confirmed")) {
-        showError("Please confirm your email address before logging in. Check your inbox.");
-      } else {
-        showError(error.message || "Invalid email or password.");
-      }
+      showError(error.message || "Invalid email or password.");
       return;
     }
 
