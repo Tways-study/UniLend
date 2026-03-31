@@ -442,7 +442,7 @@ if (currentPage === "admin") {
 
     if (!data?.length) {
       tbody.innerHTML = `
-        <tr><td colspan="4" class="text-center py-4">
+        <tr><td colspan="5" class="text-center py-4">
           <div class="empty-state">
             <i class="bi bi-archive"></i>
             <div class="empty-title">No inventory</div>
@@ -466,8 +466,33 @@ if (currentPage === "admin") {
           <td class="text-center">${item.total_stock}</td>
           <td class="text-center fw-semibold">${item.available}</td>
           <td class="text-center">${badge}</td>
+          <td class="text-center">
+            <button class="btn-restock restock-btn"
+              data-item-id="${item.id}"
+              data-item-name="${item.name}"
+              data-total="${item.total_stock}"
+              data-avail="${item.available}">
+              <i class="bi bi-plus-circle"></i> Restock
+            </button>
+          </td>
         </tr>`;
     }).join("");
+
+    tbody.querySelectorAll(".restock-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const total = parseInt(btn.dataset.total, 10);
+        const avail = parseInt(btn.dataset.avail, 10);
+        document.getElementById("restockItemName").textContent    = btn.dataset.itemName;
+        document.getElementById("restockItemId").value            = btn.dataset.itemId;
+        document.getElementById("restockCurrentTotal").value      = total;
+        document.getElementById("restockCurrentAvail").value      = avail;
+        document.getElementById("restockTotalDisplay").textContent = total;
+        document.getElementById("restockAvailDisplay").textContent = avail;
+        document.getElementById("restockAmount").value            = "";
+        document.getElementById("restockPreview").textContent     = "";
+        new bootstrap.Modal(document.getElementById("restockModal")).show();
+      });
+    });
   }
 
   // ---- Pending Requests ----
@@ -556,6 +581,51 @@ if (currentPage === "admin") {
   pendingChannel = supabase.channel("admin-reservations")
     .on("postgres_changes", { event: "*", schema: "public", table: "reservations" }, loadPendingRequests)
     .subscribe();
+
+  // ---- Restock modal: live preview ----
+  document.getElementById("restockAmount")?.addEventListener("input", () => {
+    const amount  = parseInt(document.getElementById("restockAmount").value, 10);
+    const total   = parseInt(document.getElementById("restockCurrentTotal").value, 10);
+    const avail   = parseInt(document.getElementById("restockCurrentAvail").value, 10);
+    const preview = document.getElementById("restockPreview");
+    if (!isNaN(amount) && amount > 0) {
+      preview.textContent = `After restock → Total: ${total + amount}, Available: ${avail + amount}`;
+    } else {
+      preview.textContent = "";
+    }
+  });
+
+  // ---- Restock confirm ----
+  document.getElementById("confirmRestockBtn")?.addEventListener("click", async () => {
+    const amount  = parseInt(document.getElementById("restockAmount").value, 10);
+    const itemId  = document.getElementById("restockItemId").value;
+    const total   = parseInt(document.getElementById("restockCurrentTotal").value, 10);
+    const avail   = parseInt(document.getElementById("restockCurrentAvail").value, 10);
+    const btn     = document.getElementById("confirmRestockBtn");
+
+    if (!amount || amount < 1) {
+      showToast("Enter a valid number of units to add.", "error");
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>Restocking\u2026`;
+
+    const { error } = await supabase
+      .from("equipment")
+      .update({ total_stock: total + amount, available: avail + amount })
+      .eq("id", itemId);
+
+    if (error) {
+      showToast("Failed to restock. Please try again.", "error");
+    } else {
+      bootstrap.Modal.getInstance(document.getElementById("restockModal")).hide();
+      showToast(`Restocked successfully — ${amount} unit${amount !== 1 ? "s" : ""} added.`, "success");
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = `<i class="bi bi-plus-circle me-1"></i>Restock`;
+  });
 
   // ---- Logout ----
   document.getElementById("logoutBtn")?.addEventListener("click", async () => {

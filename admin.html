@@ -366,6 +366,106 @@
         color: var(--red);
       }
 
+      /* ---- Restock button ---- */
+      .btn-restock {
+        background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+        border: none;
+        color: #fff;
+        font-size: 0.77rem;
+        font-weight: 700;
+        padding: 0.38rem 0.9rem;
+        border-radius: 7px;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(29, 78, 216, 0.25);
+        letter-spacing: 0.2px;
+        cursor: pointer;
+      }
+      .btn-restock:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(29, 78, 216, 0.4);
+        color: #fff;
+        filter: brightness(1.08);
+      }
+      .btn-restock:disabled {
+        opacity: 0.6;
+        transform: none;
+        cursor: wait;
+      }
+
+      /* ---- Restock modal ---- */
+      .modal-content {
+        border: none;
+        border-radius: 1.1rem;
+        overflow: hidden;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.25);
+      }
+      .modal-header {
+        background: linear-gradient(90deg, var(--red-dark) 0%, var(--red) 100%);
+        color: #fff;
+        border-bottom: none;
+        padding: 1.1rem 1.5rem;
+      }
+      .modal-title {
+        font-weight: 700;
+        font-size: 1rem;
+      }
+      .btn-close {
+        filter: invert(1);
+      }
+      .modal-body {
+        padding: 1.5rem;
+      }
+      .modal-footer {
+        padding: 0.75rem 1.5rem 1.25rem;
+      }
+      .btn-confirm {
+        background: linear-gradient(
+          135deg,
+          var(--red) 0%,
+          var(--red-dark) 100%
+        );
+        border: none;
+        color: #fff;
+        font-weight: 700;
+        border-radius: 8px;
+        padding: 0.5rem 1.4rem;
+        transition: all 0.22s ease;
+        box-shadow: 0 4px 12px rgba(185, 28, 28, 0.3);
+        font-size: 0.88rem;
+        cursor: pointer;
+      }
+      .btn-confirm:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(185, 28, 28, 0.4);
+        color: #fff;
+      }
+      .btn-confirm:disabled {
+        opacity: 0.65;
+        transform: none;
+        cursor: wait;
+      }
+      .restock-stat {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 0.8rem 1rem;
+        text-align: center;
+      }
+      .restock-stat-label {
+        font-size: 0.71rem;
+        color: #9ca3af;
+        font-weight: 500;
+        letter-spacing: 0.2px;
+        margin-bottom: 0.25rem;
+      }
+      .restock-stat-value {
+        font-size: 1.55rem;
+        font-weight: 800;
+        color: #1f2937;
+        letter-spacing: -0.5px;
+        line-height: 1;
+      }
+
       /* ---- Empty state ---- */
       .empty-state {
         text-align: center;
@@ -589,6 +689,7 @@
                   <th class="text-center">Total Stock</th>
                   <th class="text-center">Available</th>
                   <th class="text-center">Status</th>
+                  <th class="text-center">Actions</th>
                 </tr>
               </thead>
               <tbody id="inventoryTableBody"></tbody>
@@ -597,6 +698,88 @@
         </div>
       </section>
     </main>
+
+    <!-- Restock Modal -->
+    <div
+      class="modal fade"
+      id="restockModal"
+      tabindex="-1"
+      aria-labelledby="restockModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="restockModalLabel">
+              <i class="bi bi-plus-circle me-2"></i>Restock Equipment
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <p
+              class="mb-3 fw-medium"
+              id="restockItemName"
+              style="font-size: 0.95rem"
+            ></p>
+            <input type="hidden" id="restockItemId" />
+            <input type="hidden" id="restockCurrentTotal" />
+            <input type="hidden" id="restockCurrentAvail" />
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <div class="restock-stat">
+                  <div class="restock-stat-label">Current Total</div>
+                  <div class="restock-stat-value" id="restockTotalDisplay">
+                    --
+                  </div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="restock-stat">
+                  <div class="restock-stat-label">Available Now</div>
+                  <div class="restock-stat-value" id="restockAvailDisplay">
+                    --
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="mb-1">
+              <label
+                for="restockAmount"
+                class="form-label fw-semibold"
+                style="font-size: 0.83rem"
+                >Units to Add</label
+              >
+              <input
+                type="number"
+                class="form-control"
+                id="restockAmount"
+                min="1"
+                max="999"
+                placeholder="e.g. 5"
+              />
+            </div>
+            <div class="form-text" id="restockPreview"></div>
+          </div>
+          <div class="modal-footer border-0">
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              data-bs-dismiss="modal"
+            >
+              Cancel
+            </button>
+            <button type="button" class="btn-confirm" id="confirmRestockBtn">
+              <i class="bi bi-plus-circle me-1"></i>Restock
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <footer class="site-footer">
       &copy; 2026 <a href="#">UniLend</a>. All rights reserved.
