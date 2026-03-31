@@ -250,7 +250,11 @@ if (currentPage === "student") {
 
     const tbody = document.getElementById("requestsTableBody");
     if (!tbody) return;
-    if (error || !data?.length) {
+    if (error) {
+      tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">Failed to load requests: ${error.message}</td></tr>`;
+      return;
+    }
+    if (!data?.length) {
       tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">No requests yet.</td></tr>`;
       return;
     }
@@ -277,8 +281,7 @@ if (currentPage === "student") {
     .subscribe();
 
   requestsChannel = supabase.channel("my-requests")
-    .on("postgres_changes", { event: "*", schema: "public", table: "reservations",
-      filter: `student_id=eq.${user.id}` }, loadMyRequests)
+    .on("postgres_changes", { event: "*", schema: "public", table: "reservations" }, loadMyRequests)
     .subscribe();
 
   // ---- Reserve ----
@@ -303,6 +306,7 @@ if (currentPage === "student") {
     } else {
       bootstrap.Modal.getInstance(document.getElementById("reserveModal")).hide();
       document.getElementById("reserveDate").value = "";
+      await loadMyRequests();
     }
     btn.disabled = false;
   });
