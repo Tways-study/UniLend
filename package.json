@@ -1,5 +1,6 @@
 {
-  "dependencies": {
-    "@dataconnect/generated": "file:src/dataconnect-generated"
-  }
+  "name": "unilend",
+  "version": "1.0.0",
+  "description": "UniLend - University Lending System",
+  "dependencies": {}
 }
