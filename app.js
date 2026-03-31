@@ -130,7 +130,7 @@ if (currentPage === "login") {
     loginBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Logging in\u2026`;
 
     const email    = emailInput.value.trim();
-    const password = passInput.value.trim();
+    const password = passInput.value;
 
     if (!email || !password) {
       showError("Please enter both email and password.");
@@ -140,7 +140,11 @@ if (currentPage === "login") {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      showError("Invalid email or password.");
+      if (error.message?.toLowerCase().includes("email not confirmed")) {
+        showError("Please confirm your email address before logging in. Check your inbox.");
+      } else {
+        showError(error.message || "Invalid email or password.");
+      }
       return;
     }
 
