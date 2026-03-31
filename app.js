@@ -12,6 +12,32 @@ const currentPage = (() => {
   return "login";
 })();
 
+// ---------- Toast Notification System ----------
+function showToast(message, type = "info") {
+  const container = document.getElementById("toastContainer");
+  if (!container) return;
+
+  const iconMap = {
+    success: "bi-check-lg",
+    error:   "bi-x-lg",
+    info:    "bi-info-lg",
+  };
+
+  const id = "toast-" + Date.now();
+  const html = `
+    <div id="${id}" class="toast toast-custom toast-${type}" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="3500">
+      <div class="toast-body">
+        <div class="toast-icon"><i class="bi ${iconMap[type] || iconMap.info}"></i></div>
+        <span>${message}</span>
+      </div>
+    </div>`;
+  container.insertAdjacentHTML("beforeend", html);
+  const el = document.getElementById(id);
+  const toast = new bootstrap.Toast(el);
+  el.addEventListener("hidden.bs.toast", () => el.remove());
+  toast.show();
+}
+
 // ============================================================
 // LOGIN PAGE
 // ============================================================
@@ -25,6 +51,16 @@ if (currentPage === "login") {
   const adminTab   = document.getElementById("admin-tab");
 
   let selectedRole = "student";
+
+  // Password visibility toggle
+  const togglePass = document.getElementById("togglePass");
+  if (togglePass) {
+    togglePass.addEventListener("click", () => {
+      const isPassword = passInput.type === "password";
+      passInput.type = isPassword ? "text" : "password";
+      togglePass.querySelector("i").className = isPassword ? "bi bi-eye-slash" : "bi bi-eye";
+    });
+  }
 
   // Register / Login view toggle
   const registerToggleWrap = document.getElementById("registerToggleWrap");
@@ -185,6 +221,7 @@ if (currentPage === "login") {
 if (currentPage === "student") {
   let equipmentChannel = null;
   let requestsChannel  = null;
+  let allEquipment     = [];
 
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) { window.location.href = "index.html"; }
@@ -197,14 +234,28 @@ if (currentPage === "student") {
   async function loadEquipment() {
     const { data, error } = await supabase
       .from("equipment").select("*").order("name");
-    if (!error && data) renderEquipmentCards(data);
+    if (!error && data) {
+      allEquipment = data;
+      renderEquipmentCards(data);
+    }
   }
 
   function renderEquipmentCards(items) {
-    const grid = document.getElementById("equipmentGrid");
+    const grid  = document.getElementById("equipmentGrid");
+    const empty = document.getElementById("equipmentEmpty");
     if (!grid) return;
+
+    if (!items.length) {
+      grid.innerHTML = "";
+      empty?.classList.remove("d-none");
+      return;
+    }
+    empty?.classList.add("d-none");
+
     grid.innerHTML = items.map(item => {
       const avail = item.available > 0;
+      const pct   = item.total_stock > 0 ? Math.round((item.available / item.total_stock) * 100) : 0;
+      const level = pct > 50 ? "high" : pct > 0 ? "med" : "low";
       return `
         <div class="col-12 col-md-6 col-lg-4">
           <div class="card h-100 shadow-sm border-0">
@@ -214,18 +265,21 @@ if (currentPage === "student") {
             <div class="card-body d-flex flex-column">
               <h5 class="card-title fw-bold">${item.name}</h5>
               <p class="card-text text-muted small flex-grow-1">${item.description}</p>
-              <div class="d-flex justify-content-between align-items-center mt-2">
-                <span class="badge ${avail ? 'bg-success' : 'bg-secondary'}">
-                  ${item.available} / ${item.total_stock} available
-                </span>
-                <button
-                  class="btn btn-sm ${avail ? 'btn-primary' : 'btn-outline-secondary'} reserve-btn"
-                  data-item-id="${item.id}"
-                  data-item-name="${item.name}"
-                  ${!avail ? 'disabled' : ''}>
-                  <i class="bi bi-calendar-plus me-1"></i>${avail ? 'Reserve' : 'Unavailable'}
-                </button>
+              <div class="mb-2">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <span class="avail-text ${level}">${item.available} / ${item.total_stock} available</span>
+                </div>
+                <div class="avail-bar-wrap">
+                  <div class="avail-bar ${level}" style="width: ${pct}%"></div>
+                </div>
               </div>
+              <button
+                class="btn btn-sm ${avail ? 'btn-primary' : 'btn-outline-secondary'} reserve-btn w-100"
+                data-item-id="${item.id}"
+                data-item-name="${item.name}"
+                ${!avail ? 'disabled' : ''}>
+                <i class="bi ${avail ? 'bi-calendar-plus' : 'bi-x-circle'} me-1"></i>${avail ? 'Reserve' : 'Unavailable'}
+              </button>
             </div>
           </div>
         </div>`;
@@ -235,10 +289,26 @@ if (currentPage === "student") {
       btn.addEventListener("click", () => {
         document.getElementById("modalItemName").textContent = btn.dataset.itemName;
         document.getElementById("modalItemId").value         = btn.dataset.itemId;
+        document.getElementById("reserveDate").value         = "";
         new bootstrap.Modal(document.getElementById("reserveModal")).show();
       });
     });
   }
+
+  // ---- Search / Filter ----
+  const searchInput = document.getElementById("equipmentSearch");
+  searchInput?.addEventListener("input", () => {
+    const q = searchInput.value.trim().toLowerCase();
+    if (!q) {
+      renderEquipmentCards(allEquipment);
+      return;
+    }
+    const filtered = allEquipment.filter(item =>
+      item.name.toLowerCase().includes(q) ||
+      (item.description && item.description.toLowerCase().includes(q))
+    );
+    renderEquipmentCards(filtered);
+  });
 
   // ---- My Requests ----
   async function loadMyRequests() {
@@ -251,23 +321,30 @@ if (currentPage === "student") {
     const tbody = document.getElementById("requestsTableBody");
     if (!tbody) return;
     if (error) {
-      tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">Failed to load requests: ${error.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger py-4">Failed to load requests.</td></tr>`;
       return;
     }
     if (!data?.length) {
-      tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">No requests yet.</td></tr>`;
+      tbody.innerHTML = `
+        <tr><td colspan="3" class="text-center py-4">
+          <div class="empty-state">
+            <i class="bi bi-inbox"></i>
+            <div class="empty-title">No requests yet</div>
+            <div class="empty-desc">Reserve equipment above to get started.</div>
+          </div>
+        </td></tr>`;
       return;
     }
     tbody.innerHTML = data.map(r => {
-      const badgeClass = r.status === "approved" ? "bg-success"
-                       : r.status === "denied"   ? "bg-danger"
-                       : "bg-warning text-dark";
+      const icon = r.status === "approved" ? "bi-check-circle-fill"
+                 : r.status === "denied"   ? "bi-x-circle-fill"
+                 : "bi-clock-fill";
       const statusText = r.status.charAt(0).toUpperCase() + r.status.slice(1);
       return `
         <tr>
-          <td>${r.equipment?.name ?? "\u2014"}</td>
+          <td class="fw-medium">${r.equipment?.name ?? "\u2014"}</td>
           <td>${r.reservation_date}</td>
-          <td><span class="badge ${badgeClass}">${statusText}</span></td>
+          <td><span class="status-badge status-${r.status}"><i class="bi ${icon}"></i>${statusText}</span></td>
         </tr>`;
     }).join("");
   }
@@ -290,8 +367,9 @@ if (currentPage === "student") {
     const itemId   = document.getElementById("modalItemId").value;
     const btn      = document.getElementById("confirmReserveBtn");
 
-    if (!dateVal) { alert("Please select a date."); return; }
+    if (!dateVal) { showToast("Please select a date.", "error"); return; }
     btn.disabled = true;
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>Reserving\u2026`;
 
     const { error } = await supabase.from("reservations").insert({
       student_id:       user.id,
@@ -302,13 +380,15 @@ if (currentPage === "student") {
     });
 
     if (error) {
-      alert("Failed to submit reservation. Please try again.");
+      showToast("Failed to submit reservation. Please try again.", "error");
     } else {
       bootstrap.Modal.getInstance(document.getElementById("reserveModal")).hide();
       document.getElementById("reserveDate").value = "";
+      showToast("Reservation submitted successfully!", "success");
       await loadMyRequests();
     }
     btn.disabled = false;
+    btn.innerHTML = `<i class="bi bi-check-circle me-1"></i>Confirm`;
   });
 
   // ---- Logout ----
@@ -338,22 +418,53 @@ if (currentPage === "admin") {
     window.location.href = "index.html";
   }
 
+  // ---- Stats ----
+  function updateStats(equipment, pendingCount) {
+    const statPending   = document.getElementById("statPending");
+    const statItems     = document.getElementById("statItems");
+    const statAvailable = document.getElementById("statAvailable");
+    const statLow       = document.getElementById("statLow");
+
+    if (statPending)   statPending.textContent   = pendingCount ?? "--";
+    if (equipment) {
+      if (statItems)     statItems.textContent     = equipment.length;
+      if (statAvailable) statAvailable.textContent = equipment.filter(e => e.available > 0).length;
+      if (statLow)       statLow.textContent       = equipment.filter(e => e.available <= 2).length;
+    }
+  }
+
   // ---- Inventory ----
   async function loadInventory() {
     const { data, error } = await supabase
       .from("equipment").select("*").order("name");
     const tbody = document.getElementById("inventoryTableBody");
     if (!tbody || error) return;
-    tbody.innerHTML = (data ?? []).map(item => {
+
+    if (!data?.length) {
+      tbody.innerHTML = `
+        <tr><td colspan="4" class="text-center py-4">
+          <div class="empty-state">
+            <i class="bi bi-archive"></i>
+            <div class="empty-title">No inventory</div>
+            <div class="empty-desc">Equipment will appear here once added.</div>
+          </div>
+        </td></tr>`;
+      updateStats([], null);
+      return;
+    }
+
+    updateStats(data, null);
+
+    tbody.innerHTML = data.map(item => {
       let badge;
-      if (item.available === 0)     badge = `<span class="badge-out">Out of Stock</span>`;
-      else if (item.available <= 2) badge = `<span class="badge-low">Low Stock</span>`;
-      else                          badge = `<span class="badge-instock">In Stock</span>`;
+      if (item.available === 0)     badge = `<span class="badge-out"><i class="bi bi-x-circle-fill"></i> Out of Stock</span>`;
+      else if (item.available <= 2) badge = `<span class="badge-low"><i class="bi bi-exclamation-circle-fill"></i> Low Stock</span>`;
+      else                          badge = `<span class="badge-instock"><i class="bi bi-check-circle-fill"></i> In Stock</span>`;
       return `
         <tr>
-          <td><i class="bi ${item.icon} me-2 item-icon"></i>${item.name}</td>
+          <td><i class="bi ${item.icon} me-2 item-icon"></i><span class="fw-medium">${item.name}</span></td>
           <td class="text-center">${item.total_stock}</td>
-          <td class="text-center">${item.available}</td>
+          <td class="text-center fw-semibold">${item.available}</td>
           <td class="text-center">${badge}</td>
         </tr>`;
     }).join("");
@@ -370,15 +481,24 @@ if (currentPage === "admin") {
     const tbody = document.getElementById("pendingTableBody");
     if (!tbody || error) return;
 
+    updateStats(null, data?.length ?? 0);
+
     if (!data?.length) {
-      tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">No pending requests.</td></tr>`;
+      tbody.innerHTML = `
+        <tr><td colspan="4" class="text-center py-4">
+          <div class="empty-state">
+            <i class="bi bi-check-circle"></i>
+            <div class="empty-title">All caught up!</div>
+            <div class="empty-desc">No pending reservation requests.</div>
+          </div>
+        </td></tr>`;
       return;
     }
 
     tbody.innerHTML = data.map(r => `
       <tr data-reservation-id="${r.id}" data-equipment-id="${r.equipment_id}">
         <td>${r.student_email}</td>
-        <td>${r.equipment?.name ?? "\u2014"}</td>
+        <td class="fw-medium">${r.equipment?.name ?? "\u2014"}</td>
         <td>${r.reservation_date}</td>
         <td class="text-end">
           <button class="btn-approve me-1 approve-btn"><i class="bi bi-check-lg"></i> Approve</button>
@@ -392,11 +512,18 @@ if (currentPage === "admin") {
         const reservId = row.dataset.reservationId;
         const equipId  = row.dataset.equipmentId;
         btn.disabled   = true;
+        btn.innerHTML  = `<span class="spinner-border spinner-border-sm"></span>`;
         const { error: e1 } = await supabase
           .from("reservations").update({ status: "approved" }).eq("id", reservId);
         const { error: e2 } = await supabase
           .rpc("decrement_available", { equipment_id: equipId });
-        if (e1 || e2) { alert("Failed to approve request."); btn.disabled = false; }
+        if (e1 || e2) {
+          showToast("Failed to approve request.", "error");
+          btn.disabled = false;
+          btn.innerHTML = `<i class="bi bi-check-lg"></i> Approve`;
+        } else {
+          showToast("Request approved.", "success");
+        }
       });
     });
 
@@ -405,9 +532,16 @@ if (currentPage === "admin") {
         const row      = btn.closest("tr");
         const reservId = row.dataset.reservationId;
         btn.disabled   = true;
+        btn.innerHTML  = `<span class="spinner-border spinner-border-sm"></span>`;
         const { error } = await supabase
           .from("reservations").update({ status: "denied" }).eq("id", reservId);
-        if (error) { alert("Failed to deny request."); btn.disabled = false; }
+        if (error) {
+          showToast("Failed to deny request.", "error");
+          btn.disabled = false;
+          btn.innerHTML = `<i class="bi bi-x-lg"></i> Deny`;
+        } else {
+          showToast("Request denied.", "info");
+        }
       });
     });
   }
