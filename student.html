@@ -62,6 +62,15 @@
         font-weight: 800;
         color: var(--gold-light) !important;
         letter-spacing: -0.4px;
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+      }
+      .navbar-logo {
+        height: 38px;
+        width: auto;
+        object-fit: contain;
+        filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.35));
       }
       .gold-bar {
         height: 3px;
@@ -512,11 +521,11 @@
     <nav class="navbar navbar-expand-md navbar-student sticky-top">
       <div class="container">
         <a class="navbar-brand fw-bold" href="#">
-          <i
-            class="bi bi-mortarboard-fill me-1"
-            style="color: var(--gold-light)"
-          ></i
-          >UniLend
+          <img
+            src="assets/usa-logo.png"
+            alt="University of San Agustin"
+            class="navbar-logo"
+          />UniLend
         </a>
         <button
           class="navbar-toggler border-0"

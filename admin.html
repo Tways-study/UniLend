@@ -66,6 +66,12 @@
         align-items: center;
         gap: 0.45rem;
       }
+      .navbar-logo {
+        height: 38px;
+        width: auto;
+        object-fit: contain;
+        filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.35));
+      }
       .badge-admin {
         background: rgba(245, 158, 11, 0.18);
         color: var(--gold-light);
@@ -605,10 +611,11 @@
     <nav class="navbar navbar-expand-md navbar-admin sticky-top">
       <div class="container">
         <a class="navbar-brand" href="#">
-          <i
-            class="bi bi-mortarboard-fill"
-            style="color: var(--gold-light)"
-          ></i>
+          <img
+            src="assets/usa-logo.png"
+            alt="University of San Agustin"
+            class="navbar-logo"
+          />
           UniLend
           <span class="badge-admin">ADMIN</span>
         </a>
