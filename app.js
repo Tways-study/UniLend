@@ -296,18 +296,29 @@ if (currentPage === "student") {
   }
 
   // ---- Search / Filter ----
-  const searchInput = document.getElementById("equipmentSearch");
-  searchInput?.addEventListener("input", () => {
-    const q = searchInput.value.trim().toLowerCase();
-    if (!q) {
-      renderEquipmentCards(allEquipment);
-      return;
+  let filterAvail = "all"; // 'all' | 'available' | 'unavailable'
+
+  function applyFilters() {
+    const q = searchInput?.value.trim().toLowerCase() ?? "";
+    let filtered = allEquipment;
+    if (q) {
+      filtered = filtered.filter(item =>
+        item.name.toLowerCase().includes(q) ||
+        (item.description && item.description.toLowerCase().includes(q))
+      );
     }
-    const filtered = allEquipment.filter(item =>
-      item.name.toLowerCase().includes(q) ||
-      (item.description && item.description.toLowerCase().includes(q))
-    );
+    if (filterAvail === "available")   filtered = filtered.filter(item => item.available > 0);
+    if (filterAvail === "unavailable") filtered = filtered.filter(item => item.available === 0);
     renderEquipmentCards(filtered);
+  }
+
+  const searchInput = document.getElementById("equipmentSearch");
+  searchInput?.addEventListener("input", applyFilters);
+
+  const filterSelect = document.getElementById("availabilityFilter");
+  filterSelect?.addEventListener("change", () => {
+    filterAvail = filterSelect.value;
+    applyFilters();
   });
 
   // ---- My Requests ----
@@ -335,16 +346,23 @@ if (currentPage === "student") {
         </td></tr>`;
       return;
     }
+    const today = new Date().toISOString().split("T")[0];
     tbody.innerHTML = data.map(r => {
-      const icon = r.status === "approved" ? "bi-check-circle-fill"
-                 : r.status === "denied"   ? "bi-x-circle-fill"
+      const isOverdue    = r.status === "approved" && r.reservation_date < today;
+      const displayStatus = isOverdue ? "overdue" : r.status;
+      const icon = isOverdue              ? "bi-exclamation-circle-fill"
+                 : r.status === "approved"  ? "bi-check-circle-fill"
+                 : r.status === "returned"  ? "bi-arrow-return-left"
+                 : r.status === "denied"    ? "bi-x-circle-fill"
                  : "bi-clock-fill";
-      const statusText = r.status.charAt(0).toUpperCase() + r.status.slice(1);
+      const statusText = isOverdue            ? "Overdue"
+                       : r.status === "returned" ? "Returned"
+                       : r.status.charAt(0).toUpperCase() + r.status.slice(1);
       return `
         <tr>
           <td class="fw-medium">${r.equipment?.name ?? "\u2014"}</td>
           <td>${r.reservation_date}</td>
-          <td><span class="status-badge status-${r.status}"><i class="bi ${icon}"></i>${statusText}</span></td>
+          <td><span class="status-badge status-${displayStatus}"><i class="bi ${icon}"></i>${statusText}</span></td>
         </tr>`;
     }).join("");
   }
@@ -431,6 +449,11 @@ if (currentPage === "admin") {
       if (statAvailable) statAvailable.textContent = equipment.filter(e => e.available > 0).length;
       if (statLow)       statLow.textContent       = equipment.filter(e => e.available <= 2).length;
     }
+  }
+
+  function updateOverdueStat(count) {
+    const el = document.getElementById("statOverdue");
+    if (el) el.textContent = count;
   }
 
   // ---- Inventory ----
@@ -571,15 +594,76 @@ if (currentPage === "admin") {
     });
   }
 
+  // ---- Overdue Reservations ----
+  async function loadOverdueReservations() {
+    const today = new Date().toISOString().split("T")[0];
+    const { data, error } = await supabase
+      .from("reservations")
+      .select("*, equipment(name)")
+      .eq("status", "approved")
+      .lt("reservation_date", today)
+      .order("reservation_date");
+
+    const tbody = document.getElementById("overdueTableBody");
+    if (!tbody || error) return;
+
+    updateOverdueStat(data?.length ?? 0);
+
+    if (!data?.length) {
+      tbody.innerHTML = `
+        <tr><td colspan="4" class="text-center py-4">
+          <div class="empty-state">
+            <i class="bi bi-check-circle"></i>
+            <div class="empty-title">No overdue reservations</div>
+            <div class="empty-desc">All approved equipment has been returned on time.</div>
+          </div>
+        </td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = data.map(r => `
+      <tr data-reservation-id="${r.id}" data-equipment-id="${r.equipment_id}">
+        <td>${r.student_email}</td>
+        <td class="fw-medium">${r.equipment?.name ?? "\u2014"}</td>
+        <td><span class="badge-overdue"><i class="bi bi-exclamation-circle-fill"></i>${r.reservation_date}</span></td>
+        <td class="text-end">
+          <button class="btn-return return-btn"><i class="bi bi-box-arrow-in-left"></i> Mark Returned</button>
+        </td>
+      </tr>`).join("");
+
+    tbody.querySelectorAll(".return-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const row      = btn.closest("tr");
+        const reservId = row.dataset.reservationId;
+        const equipId  = row.dataset.equipmentId;
+        btn.disabled   = true;
+        btn.innerHTML  = `<span class="spinner-border spinner-border-sm"></span>`;
+        const { error: rpcErr } = await supabase
+          .rpc("return_equipment", { reservation_id: reservId, equipment_id: equipId });
+        if (rpcErr) {
+          showToast("Failed to mark as returned.", "error");
+          btn.disabled = false;
+          btn.innerHTML = `<i class="bi bi-box-arrow-in-left"></i> Mark Returned`;
+        } else {
+          showToast("Equipment marked as returned.", "success");
+        }
+      });
+    });
+  }
+
   await loadInventory();
   await loadPendingRequests();
+  await loadOverdueReservations();
 
   inventoryChannel = supabase.channel("admin-equipment")
     .on("postgres_changes", { event: "*", schema: "public", table: "equipment" }, loadInventory)
     .subscribe();
 
   pendingChannel = supabase.channel("admin-reservations")
-    .on("postgres_changes", { event: "*", schema: "public", table: "reservations" }, loadPendingRequests)
+    .on("postgres_changes", { event: "*", schema: "public", table: "reservations" }, async () => {
+      await loadPendingRequests();
+      await loadOverdueReservations();
+    })
     .subscribe();
 
   // ---- Restock modal: live preview ----

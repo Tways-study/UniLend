@@ -392,6 +392,51 @@
         cursor: wait;
       }
 
+      /* ---- Overdue / Return ---- */
+      .badge-overdue {
+        background: #fee2e2;
+        color: #991b1b;
+        font-size: 0.73rem;
+        font-weight: 600;
+        padding: 0.3rem 0.7rem;
+        border-radius: 99px;
+        letter-spacing: 0.2px;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+      }
+      .badge-overdue i {
+        font-size: 0.6rem;
+      }
+      .stat-icon.overdue {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+      .btn-return {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        border: none;
+        color: #fff;
+        font-size: 0.77rem;
+        font-weight: 700;
+        padding: 0.38rem 0.9rem;
+        border-radius: 7px;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(5, 150, 105, 0.28);
+        letter-spacing: 0.2px;
+        cursor: pointer;
+      }
+      .btn-return:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(5, 150, 105, 0.4);
+        color: #fff;
+        filter: brightness(1.07);
+      }
+      .btn-return:disabled {
+        opacity: 0.6;
+        transform: none;
+        cursor: wait;
+      }
+
       /* ---- Restock modal ---- */
       .modal-content {
         border: none;
@@ -603,7 +648,7 @@
     <main class="container py-4 py-md-5">
       <!-- Stats overview -->
       <div class="row g-3 mb-4" id="statsRow">
-        <div class="col-6 col-lg-3">
+        <div class="col-6 col-lg">
           <div class="stat-card">
             <div class="stat-icon pending">
               <i class="bi bi-hourglass-split"></i>
@@ -614,7 +659,7 @@
             </div>
           </div>
         </div>
-        <div class="col-6 col-lg-3">
+        <div class="col-6 col-lg">
           <div class="stat-card">
             <div class="stat-icon items"><i class="bi bi-box-seam"></i></div>
             <div>
@@ -623,7 +668,7 @@
             </div>
           </div>
         </div>
-        <div class="col-6 col-lg-3">
+        <div class="col-6 col-lg">
           <div class="stat-card">
             <div class="stat-icon stock">
               <i class="bi bi-check-circle"></i>
@@ -634,7 +679,7 @@
             </div>
           </div>
         </div>
-        <div class="col-6 col-lg-3">
+        <div class="col-6 col-lg">
           <div class="stat-card">
             <div class="stat-icon low">
               <i class="bi bi-exclamation-triangle"></i>
@@ -642,6 +687,17 @@
             <div>
               <div class="stat-value" id="statLow">--</div>
               <div class="stat-label">Low / Out</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-lg">
+          <div class="stat-card">
+            <div class="stat-icon overdue">
+              <i class="bi bi-clock-history"></i>
+            </div>
+            <div>
+              <div class="stat-value" id="statOverdue">--</div>
+              <div class="stat-label">Overdue</div>
             </div>
           </div>
         </div>
@@ -668,6 +724,39 @@
                 </tr>
               </thead>
               <tbody id="pendingTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Overdue Reservations -->
+      <section id="overdueSection" class="mb-5">
+        <div class="section-heading mb-1">
+          <div
+            class="heading-icon"
+            style="
+              background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            "
+          >
+            <i class="bi bi-exclamation-triangle-fill"></i>
+          </div>
+          Overdue Reservations
+        </div>
+        <p class="section-desc mb-3">
+          Approved equipment not yet returned past its reservation date.
+        </p>
+        <div class="panel-card">
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Item</th>
+                  <th>Due Date</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="overdueTableBody"></tbody>
             </table>
           </div>
         </div>

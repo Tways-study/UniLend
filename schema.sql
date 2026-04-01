@@ -107,7 +107,8 @@ create table if not exists public.reservations (
         status in (
             'pending',
             'approved',
-            'denied'
+            'denied',
+            'returned'
         )
     ) default 'pending',
     created_at timestamptz not null default now ()
@@ -196,3 +197,41 @@ alter publication supabase_realtime add table public.reservations;
 --   2. To make someone an admin, run:
 --      UPDATE public.users SET role = 'admin' WHERE email = 'admin@yourdomain.com';
 -- ============================================================
+
+-- ============================================================
+-- MIGRATION (existing databases only)
+-- Run the following in Supabase SQL Editor if you already have
+-- a deployed database to enable the 'returned' status and the
+-- atomic return_equipment function.
+-- ============================================================
+
+-- 1. Expand the status check constraint
+alter table public.reservations
+drop constraint if exists reservations_status_check;
+
+alter table public.reservations
+add constraint reservations_status_check check (
+    status in (
+        'pending',
+        'approved',
+        'denied',
+        'returned'
+    )
+);
+
+-- 2. Atomic function: mark reservation returned + restore stock
+create or replace function public.return_equipment(
+  reservation_id uuid,
+  equipment_id   uuid
+)
+returns void as $$
+begin
+  update public.reservations
+  set status = 'returned'
+  where id = reservation_id and status = 'approved';
+
+  update public.equipment
+  set available = available + 1
+  where id = equipment_id;
+end;
+$$ language plpgsql security definer;
