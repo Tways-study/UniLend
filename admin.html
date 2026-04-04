@@ -51,7 +51,7 @@
         background: linear-gradient(
           90deg,
           var(--red-dark) 0%,
-          #9b1c1c 60%,
+          #8b1e1e 60%,
           #92400e 100%
         );
         box-shadow: 0 2px 20px rgba(127, 29, 29, 0.35);
@@ -242,15 +242,21 @@
         background: linear-gradient(90deg, var(--red-dark) 0%, var(--red) 100%);
         color: rgba(255, 255, 255, 0.92);
         font-weight: 600;
-        font-size: 0.72rem;
+        font-size: 0.78rem;
         text-transform: uppercase;
         letter-spacing: 0.8px;
         border: none;
         padding: 0.95rem 1.15rem;
+        position: sticky;
+        top: 0;
+        z-index: 1;
       }
       .table tbody tr {
         border-bottom: 1px solid #f5f5f4;
         transition: all 0.18s ease;
+      }
+      .table tbody tr:nth-child(even) {
+        background: #fffbf4;
       }
       .table tbody tr:last-child {
         border-bottom: none;
@@ -441,6 +447,32 @@
         opacity: 0.6;
         transform: none;
         cursor: wait;
+      }
+
+      /* ---- Overdue heading icon CSS class ---- */
+      .heading-icon.overdue-icon {
+        background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+      }
+
+      /* ---- Overdue stat card urgent pulse ---- */
+      @keyframes urgentPulse {
+        0%, 100% { box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04); }
+        50% { box-shadow: 0 2px 18px rgba(220, 38, 38, 0.35); }
+      }
+      .stat-card.overdue-alert {
+        border: 1px solid rgba(220, 38, 38, 0.3);
+        animation: urgentPulse 2.4s ease-in-out infinite;
+      }
+
+      /* ---- Mobile action button sizing ---- */
+      @media (max-width: 576px) {
+        .btn-approve,
+        .btn-deny,
+        .btn-restock,
+        .btn-return {
+          font-size: 0.84rem;
+          padding: 0.5rem 1rem;
+        }
       }
 
       /* ---- Restock modal ---- */
@@ -740,10 +772,7 @@
       <section id="overdueSection" class="mb-5">
         <div class="section-heading mb-1">
           <div
-            class="heading-icon"
-            style="
-              background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
-            "
+            class="heading-icon overdue-icon"
           >
             <i class="bi bi-exclamation-triangle-fill"></i>
           </div>

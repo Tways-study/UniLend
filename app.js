@@ -454,6 +454,8 @@ if (currentPage === "admin") {
   function updateOverdueStat(count) {
     const el = document.getElementById("statOverdue");
     if (el) el.textContent = count;
+    const card = document.getElementById("statOverdue")?.closest(".stat-card");
+    if (card) card.classList.toggle("overdue-alert", count > 0);
   }
 
   // ---- Inventory ----
