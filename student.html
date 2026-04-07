@@ -639,7 +639,7 @@
               <thead>
                 <tr>
                   <th>Item</th>
-                  <th>Date</th>
+                  <th>Schedule</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -687,6 +687,42 @@
                 id="reserveDate"
                 required
               />
+            </div>
+            <div class="row g-2">
+              <div class="col-6">
+                <label
+                  for="pickupTime"
+                  class="form-label fw-semibold"
+                  style="font-size: 0.83rem"
+                  >Pickup Time</label
+                >
+                <input
+                  type="time"
+                  class="form-control"
+                  id="pickupTime"
+                  min="07:00"
+                  max="21:00"
+                  value="08:00"
+                  required
+                />
+              </div>
+              <div class="col-6">
+                <label
+                  for="returnTime"
+                  class="form-label fw-semibold"
+                  style="font-size: 0.83rem"
+                  >Return Time</label
+                >
+                <input
+                  type="time"
+                  class="form-control"
+                  id="returnTime"
+                  min="07:00"
+                  max="21:00"
+                  value="17:00"
+                  required
+                />
+              </div>
             </div>
           </div>
           <div class="modal-footer border-0">

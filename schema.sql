@@ -235,3 +235,14 @@ begin
   where id = equipment_id;
 end;
 $$ language plpgsql security definer;
+
+-- ============================================================
+-- MIGRATION: Add pickup_time and return_time to reservations
+-- Run this in Supabase SQL Editor if you already have a
+-- deployed database. Safe to run multiple times (IF NOT EXISTS).
+-- ============================================================
+alter table public.reservations
+add column if not exists pickup_time time not null default '08:00';
+
+alter table public.reservations
+add column if not exists return_time time not null default '17:00';

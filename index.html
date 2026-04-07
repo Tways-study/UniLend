@@ -526,7 +526,7 @@
             </div>
           </div>
 
-          <div class="mb-4">
+          <div class="mb-2">
             <label for="password" class="form-label">Password</label>
             <div class="input-group">
               <span class="input-group-text"><i class="bi bi-lock"></i></span>
@@ -548,6 +548,20 @@
                 <i class="bi bi-eye"></i>
               </button>
             </div>
+          </div>
+
+          <div class="d-flex justify-content-end mb-3">
+            <a
+              href="#"
+              id="forgotPasswordLink"
+              style="
+                font-size: 0.82rem;
+                font-weight: 600;
+                color: var(--gold);
+                text-decoration: none;
+              "
+              >Forgot password?</a
+            >
           </div>
 
           <button type="submit" class="btn btn-login w-100" id="loginBtn">
@@ -610,7 +624,7 @@
                 type="password"
                 class="form-control"
                 id="regPassword"
-                placeholder="At least 6 characters"
+                placeholder="Minimum 8 characters"
                 required
                 autocomplete="new-password"
               />
@@ -658,6 +672,96 @@
           Already have an account?
           <a href="#" id="showLoginLink">Log in</a>
         </p>
+
+        <!-- Forgot Password Form (hidden by default) -->
+        <form id="forgotForm" class="d-none" novalidate>
+          <div class="form-divider">Reset your password</div>
+          <p class="mb-3" style="font-size: 0.84rem; color: #6b7280">
+            Enter your registered email and we'll send you a reset link.
+          </p>
+          <div class="mb-4">
+            <label for="forgotEmail" class="form-label">Email address</label>
+            <div class="input-group">
+              <span class="input-group-text"
+                ><i class="bi bi-envelope"></i
+              ></span>
+              <input
+                type="email"
+                class="form-control"
+                id="forgotEmail"
+                placeholder="you@university.edu"
+                required
+                autocomplete="email"
+              />
+            </div>
+          </div>
+          <button type="submit" class="btn btn-login w-100" id="forgotBtn">
+            <i class="bi bi-send me-2"></i>Send Reset Link
+          </button>
+        </form>
+        <div
+          id="forgotError"
+          class="alert alert-danger mt-3 d-none py-2"
+          role="alert"
+        ></div>
+        <p
+          class="toggle-link text-center mt-3 mb-0 d-none"
+          id="forgotToggleWrap"
+        >
+          <a href="#" id="showLoginFromForgot" style="color: var(--red)"
+            ><i class="bi bi-arrow-left me-1"></i>Back to Login</a
+          >
+        </p>
+
+        <!-- Reset Password Form (shown when user clicks the recovery email link) -->
+        <form id="resetForm" class="d-none" novalidate>
+          <div class="form-divider">Set new password</div>
+          <div class="mb-3">
+            <label for="newPassword" class="form-label">New Password</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-lock"></i></span>
+              <input
+                type="password"
+                class="form-control"
+                id="newPassword"
+                placeholder="Minimum 8 characters"
+                required
+                autocomplete="new-password"
+              />
+            </div>
+          </div>
+          <div class="mb-4">
+            <label for="newPasswordConfirm" class="form-label"
+              >Confirm Password</label
+            >
+            <div class="input-group">
+              <span class="input-group-text"
+                ><i class="bi bi-lock-fill"></i
+              ></span>
+              <input
+                type="password"
+                class="form-control"
+                id="newPasswordConfirm"
+                placeholder="Repeat your password"
+                required
+                autocomplete="new-password"
+              />
+            </div>
+          </div>
+          <button type="submit" class="btn btn-login w-100" id="resetBtn">
+            <i class="bi bi-shield-check me-2"></i>Update Password
+          </button>
+        </form>
+        <div
+          id="resetError"
+          class="alert alert-danger mt-3 d-none py-2"
+          role="alert"
+        ></div>
+        <div
+          id="resetSuccess"
+          class="alert alert-success mt-3 d-none py-2"
+          role="alert"
+        ></div>
       </div>
 
       <p class="footer-text">
@@ -666,6 +770,222 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Email Verification Modal -->
+    <div
+      class="modal fade"
+      id="verifyEmailModal"
+      tabindex="-1"
+      aria-labelledby="verifyEmailModalLabel"
+      aria-hidden="true"
+      data-bs-backdrop="static"
+      data-bs-keyboard="false"
+    >
+      <div class="modal-dialog modal-dialog-centered" style="max-width: 400px">
+        <div
+          class="modal-content"
+          style="
+            border: none;
+            border-radius: 1.4rem;
+            overflow: hidden;
+            box-shadow: 0 32px 64px rgba(127, 29, 29, 0.3);
+          "
+        >
+          <div class="modal-body p-0">
+            <!-- Coloured header band -->
+            <div
+              style="
+                background: linear-gradient(
+                  135deg,
+                  var(--red-dark) 0%,
+                  var(--red) 60%,
+                  #92400e 100%
+                );
+                padding: 2rem 1.5rem 1.5rem;
+                text-align: center;
+              "
+            >
+              <div
+                style="
+                  width: 64px;
+                  height: 64px;
+                  background: rgba(245, 158, 11, 0.18);
+                  border: 2px solid rgba(245, 158, 11, 0.45);
+                  border-radius: 50%;
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  margin-bottom: 0.9rem;
+                "
+              >
+                <i
+                  class="bi bi-envelope-check-fill"
+                  style="font-size: 1.7rem; color: var(--gold-light)"
+                ></i>
+              </div>
+              <h5
+                class="fw-bold mb-0"
+                style="color: #fff; letter-spacing: -0.3px"
+              >
+                Verify your email
+              </h5>
+            </div>
+            <!-- Body -->
+            <div style="padding: 1.5rem 1.75rem 0.5rem; text-align: center">
+              <p
+                style="
+                  font-size: 0.9rem;
+                  color: #374151;
+                  line-height: 1.65;
+                  margin-bottom: 0.5rem;
+                "
+              >
+                A verification link has been sent to
+              </p>
+              <p
+                class="fw-bold mb-3"
+                id="verifyEmailAddress"
+                style="
+                  font-size: 0.9rem;
+                  color: var(--red-dark);
+                  word-break: break-all;
+                "
+              ></p>
+              <p
+                style="
+                  font-size: 0.84rem;
+                  color: #6b7280;
+                  line-height: 1.6;
+                  margin-bottom: 1.5rem;
+                "
+              >
+                Please click the link in that email to activate your account
+                before logging in.<br />
+                <span style="font-size: 0.78rem; color: #9ca3af"
+                  >Check your spam folder if you don't see it.</span
+                >
+              </p>
+            </div>
+          </div>
+          <div class="modal-footer border-0 justify-content-center pb-4 pt-0">
+            <button
+              type="button"
+              class="btn btn-login px-4 py-2"
+              id="verifyModalDoneBtn"
+              data-bs-dismiss="modal"
+            >
+              <i class="bi bi-arrow-left me-2"></i>Back to Login
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Password Reset Sent Modal -->
+    <div
+      class="modal fade"
+      id="resetSentModal"
+      tabindex="-1"
+      aria-hidden="true"
+      data-bs-backdrop="static"
+      data-bs-keyboard="false"
+    >
+      <div class="modal-dialog modal-dialog-centered" style="max-width: 400px">
+        <div
+          class="modal-content"
+          style="
+            border: none;
+            border-radius: 1.4rem;
+            overflow: hidden;
+            box-shadow: 0 32px 64px rgba(127, 29, 29, 0.3);
+          "
+        >
+          <div class="modal-body p-0">
+            <div
+              style="
+                background: linear-gradient(
+                  135deg,
+                  var(--red-dark) 0%,
+                  var(--red) 60%,
+                  #92400e 100%
+                );
+                padding: 2rem 1.5rem 1.5rem;
+                text-align: center;
+              "
+            >
+              <div
+                style="
+                  width: 64px;
+                  height: 64px;
+                  background: rgba(245, 158, 11, 0.18);
+                  border: 2px solid rgba(245, 158, 11, 0.45);
+                  border-radius: 50%;
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  margin-bottom: 0.9rem;
+                "
+              >
+                <i
+                  class="bi bi-send-fill"
+                  style="font-size: 1.7rem; color: var(--gold-light)"
+                ></i>
+              </div>
+              <h5
+                class="fw-bold mb-0"
+                style="color: #fff; letter-spacing: -0.3px"
+              >
+                Reset link sent!
+              </h5>
+            </div>
+            <div style="padding: 1.5rem 1.75rem 0.5rem; text-align: center">
+              <p
+                style="
+                  font-size: 0.9rem;
+                  color: #374151;
+                  line-height: 1.65;
+                  margin-bottom: 0.5rem;
+                "
+              >
+                A password reset link has been sent to
+              </p>
+              <p
+                class="fw-bold mb-3"
+                id="resetSentEmailAddress"
+                style="
+                  font-size: 0.9rem;
+                  color: var(--red-dark);
+                  word-break: break-all;
+                "
+              ></p>
+              <p
+                style="
+                  font-size: 0.84rem;
+                  color: #6b7280;
+                  line-height: 1.6;
+                  margin-bottom: 1.5rem;
+                "
+              >
+                Click the link in that email to reset your password.<br />
+                <span style="font-size: 0.78rem; color: #9ca3af"
+                  >Check your spam folder if you don't see it.</span
+                >
+              </p>
+            </div>
+          </div>
+          <div class="modal-footer border-0 justify-content-center pb-4 pt-0">
+            <button
+              type="button"
+              class="btn btn-login px-4 py-2"
+              data-bs-dismiss="modal"
+            >
+              <i class="bi bi-arrow-left me-2"></i>Got it
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="app.js"></script>
   </body>
 </html>

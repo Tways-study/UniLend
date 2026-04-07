@@ -71,6 +71,13 @@ if (currentPage === "login") {
   const registerError      = document.getElementById("registerError");
   const registerSuccess    = document.getElementById("registerSuccess");
   const registerBtn        = document.getElementById("registerBtn");
+  const forgotForm         = document.getElementById("forgotForm");
+  const forgotError        = document.getElementById("forgotError");
+  const forgotBtn          = document.getElementById("forgotBtn");
+  const resetForm          = document.getElementById("resetForm");
+  const resetError         = document.getElementById("resetError");
+  const resetSuccess       = document.getElementById("resetSuccess");
+  const resetBtn           = document.getElementById("resetBtn");
 
   function showRegisterView() {
     loginForm.classList.add("d-none");
@@ -84,9 +91,42 @@ if (currentPage === "login") {
     registerForm.classList.add("d-none");
     registerError?.classList.add("d-none");
     registerSuccess?.classList.add("d-none");
+    forgotForm?.classList.add("d-none");
+    forgotError?.classList.add("d-none");
+    document.getElementById("forgotToggleWrap")?.classList.add("d-none");
+    resetForm?.classList.add("d-none");
+    resetError?.classList.add("d-none");
+    resetSuccess?.classList.add("d-none");
     loginForm.classList.remove("d-none");
+    loginError.classList.add("d-none");
     loginToggleWrap?.classList.add("d-none");
     if (selectedRole === "student") registerToggleWrap?.classList.remove("d-none");
+  }
+
+  function showForgotView() {
+    loginForm.classList.add("d-none");
+    loginError.classList.add("d-none");
+    registerForm.classList.add("d-none");
+    registerToggleWrap?.classList.add("d-none");
+    loginToggleWrap?.classList.add("d-none");
+    resetForm?.classList.add("d-none");
+    resetError?.classList.add("d-none");
+    resetSuccess?.classList.add("d-none");
+    forgotForm?.classList.remove("d-none");
+    document.getElementById("forgotToggleWrap")?.classList.remove("d-none");
+  }
+
+  function showResetView() {
+    loginForm.classList.add("d-none");
+    loginError.classList.add("d-none");
+    registerForm.classList.add("d-none");
+    registerToggleWrap?.classList.add("d-none");
+    loginToggleWrap?.classList.add("d-none");
+    forgotForm?.classList.add("d-none");
+    document.getElementById("forgotToggleWrap")?.classList.add("d-none");
+    resetError?.classList.add("d-none");
+    resetSuccess?.classList.add("d-none");
+    resetForm?.classList.remove("d-none");
   }
 
   studentTab?.addEventListener("click", () => {
@@ -104,6 +144,19 @@ if (currentPage === "login") {
   showRegisterLink?.addEventListener("click", (e) => { e.preventDefault(); showRegisterView(); });
   showLoginLink?.addEventListener("click",    (e) => { e.preventDefault(); showLoginView(); });
 
+  // When the verify modal closes ("Back to Login"), ensure the register form is hidden
+  document.getElementById("verifyEmailModal")?.addEventListener("hidden.bs.modal", () => {
+    showLoginView();
+  });
+
+  document.getElementById("forgotPasswordLink")?.addEventListener("click", (e) => { e.preventDefault(); showForgotView(); });
+  document.getElementById("showLoginFromForgot")?.addEventListener("click", (e) => { e.preventDefault(); showLoginView(); });
+
+  // When the reset-sent modal closes, return to login view
+  document.getElementById("resetSentModal")?.addEventListener("hidden.bs.modal", () => {
+    showLoginView();
+  });
+
   registerForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     registerError.classList.add("d-none");
@@ -120,8 +173,8 @@ if (currentPage === "login") {
       showRegError("Please fill in all required fields.");
       return;
     }
-    if (password.length < 6) {
-      showRegError("Password must be at least 6 characters.");
+    if (password.length < 8) {
+      showRegError("Password must be at least 8 characters.");
       return;
     }
     if (password !== confirm) {
@@ -129,7 +182,7 @@ if (currentPage === "login") {
       return;
     }
 
-    const { error } = await supabase.auth.signUp({
+    const { data: signUpData, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { full_name: name } },
@@ -140,6 +193,18 @@ if (currentPage === "login") {
       return;
     }
 
+    // Email confirmation required (Supabase returns session=null when confirm email is on)
+    if (!signUpData.session) {
+      registerBtn.disabled = false;
+      registerBtn.innerHTML = `<i class="bi bi-person-plus me-2"></i>Create Account`;
+      registerForm.reset();
+      const addrEl = document.getElementById("verifyEmailAddress");
+      if (addrEl) addrEl.textContent = email;
+      new bootstrap.Modal(document.getElementById("verifyEmailModal")).show();
+      return;
+    }
+
+    // Auto-confirm is on (dev / testing environment)
     registerSuccess.textContent = "Account created! You can now log in.";
     registerSuccess.classList.remove("d-none");
     registerBtn.disabled = false;
@@ -154,9 +219,19 @@ if (currentPage === "login") {
     registerBtn.innerHTML = `<i class="bi bi-person-plus me-2"></i>Create Account`;
   }
 
-  // If already logged in, redirect immediately
+  // Detect PASSWORD_RECOVERY event — fires when user clicks the reset link in their email.
+  // Must be registered before getSession() to prevent the auto-redirect race condition.
+  let _recoveryMode = false;
+  supabase.auth.onAuthStateChange((event) => {
+    if (event === "PASSWORD_RECOVERY") {
+      _recoveryMode = true;
+      showResetView();
+    }
+  });
+
+  // If already logged in (and not mid-recovery), redirect to dashboard
   supabase.auth.getSession().then(async ({ data: { session } }) => {
-    if (session) await redirectByRole(session.user);
+    if (session && !_recoveryMode) await redirectByRole(session.user);
   });
 
   loginForm?.addEventListener("submit", async (e) => {
@@ -176,7 +251,12 @@ if (currentPage === "login") {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      showError(error.message || "Invalid email or password.");
+      if (error.message.toLowerCase().includes("email not confirmed")) {
+        await supabase.auth.signOut();
+        showError("Please verify your email address before logging in. Check your inbox for the confirmation link.");
+      } else {
+        showError(error.message || "Invalid email or password.");
+      }
       return;
     }
 
@@ -199,6 +279,85 @@ if (currentPage === "login") {
     }
 
     window.location.href = profile.role === "admin" ? "admin.html" : "student.html";
+  });
+
+  forgotForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    forgotError?.classList.add("d-none");
+    forgotBtn.disabled = true;
+    forgotBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Sending\u2026`;
+
+    const email = document.getElementById("forgotEmail").value.trim();
+    if (!email) {
+      forgotError.textContent = "Please enter your email address.";
+      forgotError.classList.remove("d-none");
+      forgotBtn.disabled = false;
+      forgotBtn.innerHTML = `<i class="bi bi-send me-2"></i>Send Reset Link`;
+      return;
+    }
+
+    // redirectTo tells Supabase where to send the user after clicking the link.
+    // Add this URL to Supabase Auth > URL Configuration > Redirect URLs.
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname,
+    });
+
+    forgotBtn.disabled = false;
+    forgotBtn.innerHTML = `<i class="bi bi-send me-2"></i>Send Reset Link`;
+
+    if (error) {
+      forgotError.textContent = error.message || "Failed to send reset link. Please try again.";
+      forgotError.classList.remove("d-none");
+      return;
+    }
+
+    // Always show the modal (prevents email enumeration — don't reveal if the address exists)
+    document.getElementById("resetSentEmailAddress").textContent = email;
+    new bootstrap.Modal(document.getElementById("resetSentModal")).show();
+    forgotForm.reset();
+  });
+
+  resetForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    resetError?.classList.add("d-none");
+    resetSuccess?.classList.add("d-none");
+    resetBtn.disabled = true;
+    resetBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Updating\u2026`;
+
+    const newPass     = document.getElementById("newPassword").value;
+    const confirmPass = document.getElementById("newPasswordConfirm").value;
+
+    if (newPass.length < 8) {
+      resetError.textContent = "Password must be at least 8 characters.";
+      resetError.classList.remove("d-none");
+      resetBtn.disabled = false;
+      resetBtn.innerHTML = `<i class="bi bi-shield-check me-2"></i>Update Password`;
+      return;
+    }
+    if (newPass !== confirmPass) {
+      resetError.textContent = "Passwords do not match.";
+      resetError.classList.remove("d-none");
+      resetBtn.disabled = false;
+      resetBtn.innerHTML = `<i class="bi bi-shield-check me-2"></i>Update Password`;
+      return;
+    }
+
+    const { error } = await supabase.auth.updateUser({ password: newPass });
+
+    resetBtn.disabled = false;
+    resetBtn.innerHTML = `<i class="bi bi-shield-check me-2"></i>Update Password`;
+
+    if (error) {
+      resetError.textContent = error.message || "Failed to update password. Please try again.";
+      resetError.classList.remove("d-none");
+      return;
+    }
+
+    resetSuccess.textContent = "Password updated successfully! Redirecting to login\u2026";
+    resetSuccess.classList.remove("d-none");
+    resetForm.reset();
+    await supabase.auth.signOut();
+    setTimeout(() => { _recoveryMode = false; showLoginView(); }, 2200);
   });
 
   function showError(msg) {
@@ -290,6 +449,8 @@ if (currentPage === "student") {
         document.getElementById("modalItemName").textContent = btn.dataset.itemName;
         document.getElementById("modalItemId").value         = btn.dataset.itemId;
         document.getElementById("reserveDate").value         = "";
+        document.getElementById("pickupTime").value          = "08:00";
+        document.getElementById("returnTime").value          = "17:00";
         new bootstrap.Modal(document.getElementById("reserveModal")).show();
       });
     });
@@ -346,9 +507,14 @@ if (currentPage === "student") {
         </td></tr>`;
       return;
     }
-    const today = new Date().toISOString().split("T")[0];
+    const now      = new Date();
+    const today    = now.toISOString().split("T")[0];
+    const nowTime  = now.toTimeString().slice(0, 5);
     tbody.innerHTML = data.map(r => {
-      const isOverdue    = r.status === "approved" && r.reservation_date < today;
+      const isOverdue = r.status === "approved" && (
+        r.reservation_date < today ||
+        (r.reservation_date === today && r.return_time && r.return_time.slice(0, 5) <= nowTime)
+      );
       const displayStatus = isOverdue ? "overdue" : r.status;
       const icon = isOverdue              ? "bi-exclamation-circle-fill"
                  : r.status === "approved"  ? "bi-check-circle-fill"
@@ -358,10 +524,15 @@ if (currentPage === "student") {
       const statusText = isOverdue            ? "Overdue"
                        : r.status === "returned" ? "Returned"
                        : r.status.charAt(0).toUpperCase() + r.status.slice(1);
+      const pickupFmt = r.pickup_time ? r.pickup_time.slice(0, 5) : "";
+      const returnFmt = r.return_time ? r.return_time.slice(0, 5) : "";
+      const scheduleHtml = pickupFmt && returnFmt
+        ? `${r.reservation_date}<br><small class="text-muted">${pickupFmt} – ${returnFmt}</small>`
+        : r.reservation_date;
       return `
         <tr>
           <td class="fw-medium">${r.equipment?.name ?? "\u2014"}</td>
-          <td>${r.reservation_date}</td>
+          <td>${scheduleHtml}</td>
           <td><span class="status-badge status-${displayStatus}"><i class="bi ${icon}"></i>${statusText}</span></td>
         </tr>`;
     }).join("");
@@ -381,11 +552,16 @@ if (currentPage === "student") {
 
   // ---- Reserve ----
   document.getElementById("confirmReserveBtn")?.addEventListener("click", async () => {
-    const dateVal  = document.getElementById("reserveDate").value;
-    const itemId   = document.getElementById("modalItemId").value;
-    const btn      = document.getElementById("confirmReserveBtn");
+    const dateVal      = document.getElementById("reserveDate").value;
+    const pickupVal    = document.getElementById("pickupTime").value;
+    const returnVal    = document.getElementById("returnTime").value;
+    const itemId       = document.getElementById("modalItemId").value;
+    const btn          = document.getElementById("confirmReserveBtn");
 
-    if (!dateVal) { showToast("Please select a date.", "error"); return; }
+    if (!dateVal) { showToast("Please select a reservation date.", "error"); return; }
+    if (!pickupVal || !returnVal) { showToast("Please select pickup and return times.", "error"); return; }
+    if (pickupVal >= returnVal) { showToast("Return time must be after pickup time.", "error"); return; }
+
     btn.disabled = true;
     btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>Reserving\u2026`;
 
@@ -394,6 +570,8 @@ if (currentPage === "student") {
       student_email:    user.email,
       equipment_id:     itemId,
       reservation_date: dateVal,
+      pickup_time:      pickupVal,
+      return_time:      returnVal,
       status:           "pending"
     });
 
@@ -401,7 +579,9 @@ if (currentPage === "student") {
       showToast("Failed to submit reservation. Please try again.", "error");
     } else {
       bootstrap.Modal.getInstance(document.getElementById("reserveModal")).hide();
-      document.getElementById("reserveDate").value = "";
+      document.getElementById("reserveDate").value  = "";
+      document.getElementById("pickupTime").value   = "08:00";
+      document.getElementById("returnTime").value   = "17:00";
       showToast("Reservation submitted successfully!", "success");
       await loadMyRequests();
     }
@@ -545,16 +725,23 @@ if (currentPage === "admin") {
       return;
     }
 
-    tbody.innerHTML = data.map(r => `
+    tbody.innerHTML = data.map(r => {
+      const pickupFmt = r.pickup_time ? r.pickup_time.slice(0, 5) : "";
+      const returnFmt = r.return_time ? r.return_time.slice(0, 5) : "";
+      const scheduleHtml = pickupFmt && returnFmt
+        ? `${r.reservation_date}<br><small class="text-muted">${pickupFmt} – ${returnFmt}</small>`
+        : r.reservation_date;
+      return `
       <tr data-reservation-id="${r.id}" data-equipment-id="${r.equipment_id}">
         <td>${r.student_email}</td>
         <td class="fw-medium">${r.equipment?.name ?? "\u2014"}</td>
-        <td>${r.reservation_date}</td>
+        <td>${scheduleHtml}</td>
         <td class="text-end">
           <button class="btn-approve me-1 approve-btn"><i class="bi bi-check-lg"></i> Approve</button>
           <button class="btn-deny deny-btn"><i class="bi bi-x-lg"></i> Deny</button>
         </td>
-      </tr>`).join("");
+      </tr>`;
+    }).join("");
 
     tbody.querySelectorAll(".approve-btn").forEach(btn => {
       btn.addEventListener("click", async () => {
@@ -596,22 +783,34 @@ if (currentPage === "admin") {
     });
   }
 
-  // ---- Overdue Reservations ----
   async function loadOverdueReservations() {
-    const today = new Date().toISOString().split("T")[0];
+    const now         = new Date();
+    const today       = now.toISOString().split("T")[0];
+    const nowTime     = now.toTimeString().slice(0, 5);
+
+    // Fetch approved reservations up to and including today
     const { data, error } = await supabase
       .from("reservations")
       .select("*, equipment(name)")
       .eq("status", "approved")
-      .lt("reservation_date", today)
+      .lte("reservation_date", today)
       .order("reservation_date");
 
     const tbody = document.getElementById("overdueTableBody");
     if (!tbody || error) return;
 
-    updateOverdueStat(data?.length ?? 0);
+    // An item is overdue if:
+    //  - reservation_date is before today, OR
+    //  - reservation_date is today AND return_time has already passed
+    const overdueData = (data ?? []).filter(r => {
+      if (r.reservation_date < today) return true;
+      if (r.reservation_date === today && r.return_time && r.return_time.slice(0, 5) <= nowTime) return true;
+      return false;
+    });
 
-    if (!data?.length) {
+    updateOverdueStat(overdueData.length);
+
+    if (!overdueData.length) {
       tbody.innerHTML = `
         <tr><td colspan="4" class="text-center py-4">
           <div class="empty-state">
@@ -623,15 +822,19 @@ if (currentPage === "admin") {
       return;
     }
 
-    tbody.innerHTML = data.map(r => `
+    tbody.innerHTML = overdueData.map(r => {
+      const returnFmt = r.return_time ? r.return_time.slice(0, 5) : "";
+      const dueLabel  = returnFmt ? `${r.reservation_date} ${returnFmt}` : r.reservation_date;
+      return `
       <tr data-reservation-id="${r.id}" data-equipment-id="${r.equipment_id}">
         <td>${r.student_email}</td>
         <td class="fw-medium">${r.equipment?.name ?? "\u2014"}</td>
-        <td><span class="badge-overdue"><i class="bi bi-exclamation-circle-fill"></i>${r.reservation_date}</span></td>
+        <td><span class="badge-overdue"><i class="bi bi-exclamation-circle-fill"></i>${dueLabel}</span></td>
         <td class="text-end">
           <button class="btn-return return-btn"><i class="bi bi-box-arrow-in-left"></i> Mark Returned</button>
         </td>
-      </tr>`).join("");
+      </tr>`;
+    }).join("");
 
     tbody.querySelectorAll(".return-btn").forEach(btn => {
       btn.addEventListener("click", async () => {
