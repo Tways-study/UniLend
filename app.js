@@ -305,8 +305,12 @@ if (currentPage === "login") {
   }
 
   // Detect PASSWORD_RECOVERY event — fires when user clicks the reset link in their email.
-  // Must be registered before getSession() to prevent the auto-redirect race condition.
-  let _recoveryMode = false;
+  // ROOT-CAUSE FIX: Read the URL hash synchronously BEFORE any async call.
+  // Without this, getSession() can resolve with the recovery session before
+  // onAuthStateChange(PASSWORD_RECOVERY) fires, leaving _recoveryMode=false and triggering
+  // redirectByRole() — which sends the user to student/admin.html with a recovery-only token.
+  // They then get bounced back here, find the same session, and are redirected again → login loop.
+  let _recoveryMode = window.location.hash.includes("type=recovery");
   supabase.auth.onAuthStateChange((event) => {
     if (event === "PASSWORD_RECOVERY") {
       _recoveryMode = true;
@@ -471,6 +475,10 @@ if (currentPage === "student") {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) { window.location.href = "index.html"; }
 
+  // Guard: only run page setup when a session exists.
+  // Without this, the lines below throw TypeError on null and can interfere
+  // with the in-progress navigation that was just scheduled above.
+  if (session) {
   const user    = session.user;
   const greeting = document.getElementById("userGreeting");
   if (greeting) {
@@ -590,7 +598,6 @@ if (currentPage === "student") {
       .eq("student_id", user.id)
       .order("created_at", { ascending: false });
 
-    const tbody = document.getElementById("requestsTableBody");
     if (!tbody) return;
     if (error) {
       tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger py-4">Failed to load requests.</td></tr>`;
@@ -698,6 +705,7 @@ if (currentPage === "student") {
     await supabase.auth.signOut();
     window.location.href = "index.html";
   });
+  } // end: if (session) guard
 }
 
 // ============================================================
@@ -710,6 +718,8 @@ if (currentPage === "admin") {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) { window.location.href = "index.html"; }
 
+  // Guard: only run role check and page setup when a session exists.
+  if (session) {
   const { data: profile } = await supabase
     .from("users").select("role").eq("id", session.user.id).single();
 
@@ -718,6 +728,8 @@ if (currentPage === "admin") {
     window.location.href = "index.html";
   }
 
+  // Guard: only continue loading the admin UI when the role is confirmed.
+  if (profile?.role === "admin") {
   // ---- Stats ----
   function updateStats(equipment, pendingCount) {
     const statPending   = document.getElementById("statPending");
@@ -759,7 +771,6 @@ if (currentPage === "admin") {
     if (tbody && !tbody.querySelector("td[data-loaded]")) tbody.innerHTML = skeletonRows(5);
     const { data, error } = await supabase
       .from("equipment").select("*").order("name");
-    const tbody = document.getElementById("inventoryTableBody");
     if (!tbody || error) return;
 
     if (!data?.length) {
@@ -832,7 +843,6 @@ if (currentPage === "admin") {
       .eq("status", "pending")
       .order("created_at");
 
-    const tbody = document.getElementById("pendingTableBody");
     if (!tbody || error) return;
 
     updateStats(null, data?.length ?? 0);
@@ -935,7 +945,6 @@ if (currentPage === "admin") {
       .lte("reservation_date", today)
       .order("reservation_date");
 
-    const tbody = document.getElementById("overdueTableBody");
     if (!tbody || error) return;
 
     // An item is overdue if:
@@ -1079,5 +1088,6 @@ if (currentPage === "admin") {
     await supabase.auth.signOut();
     window.location.href = "index.html";
   });
+  } // end: if (profile?.role === "admin") guard
+  } // end: if (session) guard
 }
-
