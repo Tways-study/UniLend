@@ -468,6 +468,36 @@
           height: 76px;
         }
       }
+
+      /* ---- Sign-up button (redesigned) ---- */
+      .btn-signup {
+        border: 2px solid var(--gold);
+        color: var(--gold);
+        background: transparent;
+        font-weight: 700;
+        font-size: 0.9rem;
+        border-radius: 10px;
+        padding: 0.65rem 1rem;
+        letter-spacing: 0.2px;
+        transition: all 0.22s ease;
+      }
+      .btn-signup:hover {
+        background: rgba(217, 119, 6, 0.12);
+        border-color: var(--gold-light);
+        color: var(--gold-light);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(217, 119, 6, 0.22);
+      }
+      .signup-divider-text {
+        font-size: 0.78rem;
+        color: #9ca3af;
+        font-weight: 500;
+        white-space: nowrap;
+        padding: 0 0.65rem;
+      }
+      .signup-divider-line {
+        border-color: rgba(0, 0, 0, 0.1);
+      }
     </style>
   </head>
   <body>
@@ -590,10 +620,20 @@
         ></div>
 
         <!-- Toggle: show register (only visible on Student tab) -->
-        <p class="toggle-link text-center mt-3 mb-0" id="registerToggleWrap">
-          Don't have an account?
-          <a href="#" id="showRegisterLink">Sign up</a>
-        </p>
+        <div id="registerToggleWrap">
+          <div class="d-flex align-items-center mt-3">
+            <hr class="flex-grow-1 m-0 signup-divider-line" />
+            <span class="signup-divider-text">or</span>
+            <hr class="flex-grow-1 m-0 signup-divider-line" />
+          </div>
+          <button
+            type="button"
+            class="btn btn-signup w-100 mt-2"
+            id="showRegisterLink"
+          >
+            <i class="bi bi-person-plus me-2"></i>Create an Account
+          </button>
+        </div>
 
         <!-- Register Form (hidden by default) -->
         <form id="registerForm" class="d-none" novalidate>
