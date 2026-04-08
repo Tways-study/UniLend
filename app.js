@@ -12,6 +12,40 @@ const currentPage = (() => {
   return "login";
 })();
 
+// ---------- Security: HTML Escape Utility ----------
+// Prevents XSS when inserting user-sourced data into innerHTML.
+function escapeHTML(str) {
+  if (str == null) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// ---------- Skeleton loader helpers ----------
+function skeletonRows(cols, count = 4) {
+  return Array.from({ length: count }, () =>
+    `<tr class="skeleton-row"><td colspan="${cols}"><div class="skeleton" style="height:14px;width:${40 + Math.random() * 40 | 0}%;border-radius:6px"></div></td></tr>`
+  ).join("");
+}
+
+function skeletonCards(count = 3) {
+  return Array.from({ length: count }, () => `
+    <div class="col-12 col-md-6 col-lg-4">
+      <div class="skeleton-card">
+        <div class="skeleton skeleton-card-img"></div>
+        <div class="card-body p-3">
+          <div class="skeleton skeleton-line full"></div>
+          <div class="skeleton skeleton-line med"></div>
+          <div class="skeleton skeleton-line sm"></div>
+          <div class="skeleton skeleton-btn"></div>
+        </div>
+      </div>
+    </div>`).join("");
+}
+
 // ---------- Toast Notification System ----------
 function showToast(message, type = "info") {
   const container = document.getElementById("toastContainer");
@@ -23,16 +57,29 @@ function showToast(message, type = "info") {
     info:    "bi-info-lg",
   };
 
-  const id = "toast-" + Date.now();
-  const html = `
-    <div id="${id}" class="toast toast-custom toast-${type}" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="3500">
-      <div class="toast-body">
-        <div class="toast-icon"><i class="bi ${iconMap[type] || iconMap.info}"></i></div>
-        <span>${message}</span>
-      </div>
-    </div>`;
-  container.insertAdjacentHTML("beforeend", html);
-  const el = document.getElementById(id);
+  // Build toast DOM safely — message is set via textContent to prevent XSS.
+  const el = document.createElement("div");
+  el.className = `toast toast-custom toast-${type}`;
+  el.setAttribute("role", "alert");
+  el.setAttribute("aria-live", "assertive");
+  el.setAttribute("aria-atomic", "true");
+  el.setAttribute("data-bs-delay", "3500");
+
+  const body = document.createElement("div");
+  body.className = "toast-body";
+
+  const iconEl = document.createElement("div");
+  iconEl.className = "toast-icon";
+  iconEl.innerHTML = `<i class="bi ${iconMap[type] || iconMap.info}"></i>`;
+
+  const msgEl = document.createElement("span");
+  msgEl.textContent = message; // textContent prevents HTML injection
+
+  body.appendChild(iconEl);
+  body.appendChild(msgEl);
+  el.appendChild(body);
+  container.appendChild(el);
+
   const toast = new bootstrap.Toast(el);
   el.addEventListener("hidden.bs.toast", () => el.remove());
   toast.show();
@@ -157,6 +204,44 @@ if (currentPage === "login") {
     showLoginView();
   });
 
+  // ---------- Password strength meter ----------
+  const regPassword = document.getElementById("regPassword");
+  const pwStrengthWrap  = document.getElementById("pwStrengthWrap");
+  const pwStrengthLabel = document.getElementById("pwStrengthLabel");
+  const pwSegs = [1, 2, 3, 4].map(n => document.getElementById(`pwSeg${n}`));
+
+  function evalPasswordStrength(pw) {
+    let score = 0;
+    if (pw.length >= 8)  score++;
+    if (pw.length >= 12) score++;
+    if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
+    if (/\d/.test(pw)) score++;
+    if (/[^A-Za-z0-9]/.test(pw)) score++;
+    // Condense to 0-4
+    return Math.min(4, score);
+  }
+
+  const strengthConfig = [
+    { label: "",        color: "#e5e7eb" },
+    { label: "Weak",    color: "#ef4444" },
+    { label: "Fair",    color: "#f59e0b" },
+    { label: "Good",    color: "#3b82f6" },
+    { label: "Strong",  color: "#10b981" },
+  ];
+
+  regPassword?.addEventListener("input", () => {
+    const pw    = regPassword.value;
+    const level = pw.length === 0 ? 0 : Math.max(1, evalPasswordStrength(pw));
+    if (pwStrengthWrap) pwStrengthWrap.style.display = pw.length ? "block" : "none";
+    pwSegs.forEach((seg, i) => {
+      seg.style.background = i < level ? strengthConfig[level].color : "#e5e7eb";
+    });
+    if (pwStrengthLabel) {
+      pwStrengthLabel.textContent  = strengthConfig[level].label;
+      pwStrengthLabel.style.color  = strengthConfig[level].color;
+    }
+  });
+
   registerForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     registerError.classList.add("d-none");
@@ -274,7 +359,8 @@ if (currentPage === "login") {
 
     if (profile.role !== selectedRole) {
       await supabase.auth.signOut();
-      showError(`This account is not registered as a ${selectedRole}.`);
+      // Generic message prevents revealing whether the account exists under a different role (OWASP A07)
+      showError("Invalid credentials or you do not have access to this portal.");
       return;
     }
 
@@ -387,10 +473,15 @@ if (currentPage === "student") {
 
   const user    = session.user;
   const greeting = document.getElementById("userGreeting");
-  if (greeting) greeting.innerHTML = `<i class="bi bi-person-circle me-1"></i>${user.email}`;
+  if (greeting) {
+    greeting.innerHTML = `<i class="bi bi-person-circle me-1"></i>`;
+    greeting.appendChild(document.createTextNode(user.email));
+  }
 
   // ---- Equipment ----
   async function loadEquipment() {
+    const grid = document.getElementById("equipmentGrid");
+    if (grid && !grid.querySelector(".card")) grid.innerHTML = skeletonCards(3);
     const { data, error } = await supabase
       .from("equipment").select("*").order("name");
     if (!error && data) {
@@ -412,21 +503,26 @@ if (currentPage === "student") {
     empty?.classList.add("d-none");
 
     grid.innerHTML = items.map(item => {
-      const avail = item.available > 0;
-      const pct   = item.total_stock > 0 ? Math.round((item.available / item.total_stock) * 100) : 0;
-      const level = pct > 50 ? "high" : pct > 0 ? "med" : "low";
+      const avail     = item.available > 0;
+      const pct       = item.total_stock > 0 ? Math.round((item.available / item.total_stock) * 100) : 0;
+      const level     = pct > 50 ? "high" : pct > 0 ? "med" : "low";
+      // Sanitise all DB-sourced strings before inserting into innerHTML (XSS prevention)
+      const safeName  = escapeHTML(item.name);
+      const safeIcon  = escapeHTML(item.icon);
+      const safeDesc  = escapeHTML(item.description);
+      const safeId    = escapeHTML(item.id);
       return `
         <div class="col-12 col-md-6 col-lg-4">
           <div class="card h-100 shadow-sm border-0">
             <div class="equipment-img-placeholder rounded-top">
-              <i class="bi ${item.icon}"></i>
+              <i class="bi ${safeIcon}"></i>
             </div>
             <div class="card-body d-flex flex-column">
-              <h5 class="card-title fw-bold">${item.name}</h5>
-              <p class="card-text text-muted small flex-grow-1">${item.description}</p>
+              <h5 class="card-title fw-bold">${safeName}</h5>
+              <p class="card-text text-muted small flex-grow-1">${safeDesc}</p>
               <div class="mb-2">
                 <div class="d-flex justify-content-between align-items-center mb-1">
-                  <span class="avail-text ${level}">${item.available} / ${item.total_stock} available</span>
+                  <span class="avail-text ${level}">${escapeHTML(String(item.available))} / ${escapeHTML(String(item.total_stock))} available</span>
                 </div>
                 <div class="avail-bar-wrap">
                   <div class="avail-bar ${level}" style="width: ${pct}%"></div>
@@ -434,8 +530,8 @@ if (currentPage === "student") {
               </div>
               <button
                 class="btn btn-sm ${avail ? 'btn-primary' : 'btn-outline-secondary'} reserve-btn w-100"
-                data-item-id="${item.id}"
-                data-item-name="${item.name}"
+                data-item-id="${safeId}"
+                data-item-name="${safeName}"
                 ${!avail ? 'disabled' : ''}>
                 <i class="bi ${avail ? 'bi-calendar-plus' : 'bi-x-circle'} me-1"></i>${avail ? 'Reserve' : 'Unavailable'}
               </button>
@@ -449,6 +545,8 @@ if (currentPage === "student") {
         document.getElementById("modalItemName").textContent = btn.dataset.itemName;
         document.getElementById("modalItemId").value         = btn.dataset.itemId;
         document.getElementById("reserveDate").value         = "";
+        // Enforce today as the earliest bookable date (prevents past reservations)
+        document.getElementById("reserveDate").min           = new Date().toISOString().split("T")[0];
         document.getElementById("pickupTime").value          = "08:00";
         document.getElementById("returnTime").value          = "17:00";
         new bootstrap.Modal(document.getElementById("reserveModal")).show();
@@ -484,6 +582,8 @@ if (currentPage === "student") {
 
   // ---- My Requests ----
   async function loadMyRequests() {
+    const tbody = document.getElementById("requestsTableBody");
+    if (tbody && !tbody.querySelector("td[data-loaded]")) tbody.innerHTML = skeletonRows(3);
     const { data, error } = await supabase
       .from("reservations")
       .select("*, equipment(name)")
@@ -524,16 +624,18 @@ if (currentPage === "student") {
       const statusText = isOverdue            ? "Overdue"
                        : r.status === "returned" ? "Returned"
                        : r.status.charAt(0).toUpperCase() + r.status.slice(1);
-      const pickupFmt = r.pickup_time ? r.pickup_time.slice(0, 5) : "";
-      const returnFmt = r.return_time ? r.return_time.slice(0, 5) : "";
+      const pickupFmt = r.pickup_time ? escapeHTML(r.pickup_time.slice(0, 5)) : "";
+      const returnFmt = r.return_time ? escapeHTML(r.return_time.slice(0, 5)) : "";
+      const safeDate  = escapeHTML(r.reservation_date ?? "");
+      const safeName  = escapeHTML(r.equipment?.name ?? "\u2014");
       const scheduleHtml = pickupFmt && returnFmt
-        ? `${r.reservation_date}<br><small class="text-muted">${pickupFmt} – ${returnFmt}</small>`
-        : r.reservation_date;
+        ? `${safeDate}<br><small class="text-muted">${pickupFmt} \u2013 ${returnFmt}</small>`
+        : safeDate;
       return `
         <tr>
-          <td class="fw-medium">${r.equipment?.name ?? "\u2014"}</td>
+          <td class="fw-medium">${safeName}</td>
           <td>${scheduleHtml}</td>
-          <td><span class="status-badge status-${displayStatus}"><i class="bi ${icon}"></i>${statusText}</span></td>
+          <td><span class="status-badge status-${escapeHTML(displayStatus)}"><i class="bi ${icon}"></i>${escapeHTML(statusText)}</span></td>
         </tr>`;
     }).join("");
   }
@@ -638,8 +740,23 @@ if (currentPage === "admin") {
     if (card) card.classList.toggle("overdue-alert", count > 0);
   }
 
+  // ---------- Shared confirm modal helper ----------
+  function showConfirmModal({ title, body, okLabel, okColor, onConfirm }) {
+    document.getElementById("confirmModalLabel").textContent    = title;
+    document.getElementById("confirmModalBody").textContent     = body;
+    const okBtn = document.getElementById("confirmModalOkBtn");
+    okBtn.textContent       = okLabel;
+    okBtn.style.background  = okColor;
+    const modal = new bootstrap.Modal(document.getElementById("confirmModal"));
+    const handler = () => { modal.hide(); onConfirm(); };
+    okBtn.addEventListener("click", handler, { once: true });
+    modal.show();
+  }
+
   // ---- Inventory ----
   async function loadInventory() {
+    const tbody = document.getElementById("inventoryTableBody");
+    if (tbody && !tbody.querySelector("td[data-loaded]")) tbody.innerHTML = skeletonRows(5);
     const { data, error } = await supabase
       .from("equipment").select("*").order("name");
     const tbody = document.getElementById("inventoryTableBody");
@@ -661,22 +778,27 @@ if (currentPage === "admin") {
     updateStats(data, null);
 
     tbody.innerHTML = data.map(item => {
+      const safeId    = escapeHTML(item.id);
+      const safeName  = escapeHTML(item.name);
+      const safeIcon  = escapeHTML(item.icon);
+      const safeTotal = escapeHTML(String(item.total_stock));
+      const safeAvail = escapeHTML(String(item.available));
       let badge;
       if (item.available === 0)     badge = `<span class="badge-out"><i class="bi bi-x-circle-fill"></i> Out of Stock</span>`;
       else if (item.available <= 2) badge = `<span class="badge-low"><i class="bi bi-exclamation-circle-fill"></i> Low Stock</span>`;
       else                          badge = `<span class="badge-instock"><i class="bi bi-check-circle-fill"></i> In Stock</span>`;
       return `
         <tr>
-          <td><i class="bi ${item.icon} me-2 item-icon"></i><span class="fw-medium">${item.name}</span></td>
-          <td class="text-center">${item.total_stock}</td>
-          <td class="text-center fw-semibold">${item.available}</td>
+          <td><i class="bi ${safeIcon} me-2 item-icon"></i><span class="fw-medium">${safeName}</span></td>
+          <td class="text-center">${safeTotal}</td>
+          <td class="text-center fw-semibold">${safeAvail}</td>
           <td class="text-center">${badge}</td>
           <td class="text-center">
             <button class="btn-restock restock-btn"
-              data-item-id="${item.id}"
-              data-item-name="${item.name}"
-              data-total="${item.total_stock}"
-              data-avail="${item.available}">
+              data-item-id="${safeId}"
+              data-item-name="${safeName}"
+              data-total="${safeTotal}"
+              data-avail="${safeAvail}">
               <i class="bi bi-plus-circle"></i> Restock
             </button>
           </td>
@@ -702,6 +824,8 @@ if (currentPage === "admin") {
 
   // ---- Pending Requests ----
   async function loadPendingRequests() {
+    const tbody = document.getElementById("pendingTableBody");
+    if (tbody && !tbody.querySelector("td[data-loaded]")) tbody.innerHTML = skeletonRows(4);
     const { data, error } = await supabase
       .from("reservations")
       .select("*, equipment(name)")
@@ -726,15 +850,20 @@ if (currentPage === "admin") {
     }
 
     tbody.innerHTML = data.map(r => {
-      const pickupFmt = r.pickup_time ? r.pickup_time.slice(0, 5) : "";
-      const returnFmt = r.return_time ? r.return_time.slice(0, 5) : "";
+      const pickupFmt   = r.pickup_time ? escapeHTML(r.pickup_time.slice(0, 5)) : "";
+      const returnFmt   = r.return_time ? escapeHTML(r.return_time.slice(0, 5)) : "";
+      const safeDate    = escapeHTML(r.reservation_date ?? "");
+      const safeEmail   = escapeHTML(r.student_email ?? "");
+      const safeEqName  = escapeHTML(r.equipment?.name ?? "\u2014");
+      const safeResId   = escapeHTML(r.id);
+      const safeEqId    = escapeHTML(r.equipment_id);
       const scheduleHtml = pickupFmt && returnFmt
-        ? `${r.reservation_date}<br><small class="text-muted">${pickupFmt} – ${returnFmt}</small>`
-        : r.reservation_date;
+        ? `${safeDate}<br><small class="text-muted">${pickupFmt} \u2013 ${returnFmt}</small>`
+        : safeDate;
       return `
-      <tr data-reservation-id="${r.id}" data-equipment-id="${r.equipment_id}">
-        <td>${r.student_email}</td>
-        <td class="fw-medium">${r.equipment?.name ?? "\u2014"}</td>
+      <tr data-reservation-id="${safeResId}" data-equipment-id="${safeEqId}">
+        <td>${safeEmail}</td>
+        <td class="fw-medium">${safeEqName}</td>
         <td>${scheduleHtml}</td>
         <td class="text-end">
           <button class="btn-approve me-1 approve-btn"><i class="bi bi-check-lg"></i> Approve</button>
@@ -765,25 +894,35 @@ if (currentPage === "admin") {
     });
 
     tbody.querySelectorAll(".deny-btn").forEach(btn => {
-      btn.addEventListener("click", async () => {
+      btn.addEventListener("click", () => {
         const row      = btn.closest("tr");
         const reservId = row.dataset.reservationId;
-        btn.disabled   = true;
-        btn.innerHTML  = `<span class="spinner-border spinner-border-sm"></span>`;
-        const { error } = await supabase
-          .from("reservations").update({ status: "denied" }).eq("id", reservId);
-        if (error) {
-          showToast("Failed to deny request.", "error");
-          btn.disabled = false;
-          btn.innerHTML = `<i class="bi bi-x-lg"></i> Deny`;
-        } else {
-          showToast("Request denied.", "info");
-        }
+        showConfirmModal({
+          title:     "Deny Request",
+          body:      "Are you sure you want to deny this reservation? The student will be notified.",
+          okLabel:   "Deny",
+          okColor:   "#b91c1c",
+          onConfirm: async () => {
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span>`;
+            const { error } = await supabase
+              .from("reservations").update({ status: "denied" }).eq("id", reservId);
+            if (error) {
+              showToast("Failed to deny request.", "error");
+              btn.disabled = false;
+              btn.innerHTML = `<i class="bi bi-x-lg"></i> Deny`;
+            } else {
+              showToast("Request denied.", "info");
+            }
+          },
+        });
       });
     });
   }
 
   async function loadOverdueReservations() {
+    const tbody = document.getElementById("overdueTableBody");
+    if (tbody && !tbody.querySelector("td[data-loaded]")) tbody.innerHTML = skeletonRows(4);
     const now         = new Date();
     const today       = now.toISOString().split("T")[0];
     const nowTime     = now.toTimeString().slice(0, 5);
@@ -823,12 +962,17 @@ if (currentPage === "admin") {
     }
 
     tbody.innerHTML = overdueData.map(r => {
-      const returnFmt = r.return_time ? r.return_time.slice(0, 5) : "";
-      const dueLabel  = returnFmt ? `${r.reservation_date} ${returnFmt}` : r.reservation_date;
+      const returnFmt  = r.return_time ? escapeHTML(r.return_time.slice(0, 5)) : "";
+      const safeDate   = escapeHTML(r.reservation_date ?? "");
+      const dueLabel   = returnFmt ? `${safeDate} ${returnFmt}` : safeDate;
+      const safeEmail  = escapeHTML(r.student_email ?? "");
+      const safeEqName = escapeHTML(r.equipment?.name ?? "\u2014");
+      const safeResId  = escapeHTML(r.id);
+      const safeEqId   = escapeHTML(r.equipment_id);
       return `
-      <tr data-reservation-id="${r.id}" data-equipment-id="${r.equipment_id}">
-        <td>${r.student_email}</td>
-        <td class="fw-medium">${r.equipment?.name ?? "\u2014"}</td>
+      <tr data-reservation-id="${safeResId}" data-equipment-id="${safeEqId}">
+        <td>${safeEmail}</td>
+        <td class="fw-medium">${safeEqName}</td>
         <td><span class="badge-overdue"><i class="bi bi-exclamation-circle-fill"></i>${dueLabel}</span></td>
         <td class="text-end">
           <button class="btn-return return-btn"><i class="bi bi-box-arrow-in-left"></i> Mark Returned</button>
@@ -837,21 +981,29 @@ if (currentPage === "admin") {
     }).join("");
 
     tbody.querySelectorAll(".return-btn").forEach(btn => {
-      btn.addEventListener("click", async () => {
+      btn.addEventListener("click", () => {
         const row      = btn.closest("tr");
         const reservId = row.dataset.reservationId;
         const equipId  = row.dataset.equipmentId;
-        btn.disabled   = true;
-        btn.innerHTML  = `<span class="spinner-border spinner-border-sm"></span>`;
-        const { error: rpcErr } = await supabase
-          .rpc("return_equipment", { reservation_id: reservId, equipment_id: equipId });
-        if (rpcErr) {
-          showToast("Failed to mark as returned.", "error");
-          btn.disabled = false;
-          btn.innerHTML = `<i class="bi bi-box-arrow-in-left"></i> Mark Returned`;
-        } else {
-          showToast("Equipment marked as returned.", "success");
-        }
+        showConfirmModal({
+          title:     "Mark as Returned",
+          body:      "Confirm that this equipment has been physically returned? Stock will be restored.",
+          okLabel:   "Confirm Return",
+          okColor:   "#059669",
+          onConfirm: async () => {
+            btn.disabled  = true;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span>`;
+            const { error: rpcErr } = await supabase
+              .rpc("return_equipment", { reservation_id: reservId, equipment_id: equipId });
+            if (rpcErr) {
+              showToast("Failed to mark as returned.", "error");
+              btn.disabled  = false;
+              btn.innerHTML = `<i class="bi bi-box-arrow-in-left"></i> Mark Returned`;
+            } else {
+              showToast("Equipment marked as returned.", "success");
+            }
+          },
+        });
       });
     });
   }
@@ -894,6 +1046,10 @@ if (currentPage === "admin") {
 
     if (!amount || amount < 1) {
       showToast("Enter a valid number of units to add.", "error");
+      return;
+    }
+    if (amount > 999) {
+      showToast("Restock amount cannot exceed 999 units at once.", "error");
       return;
     }
 

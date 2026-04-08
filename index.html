@@ -3,6 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+      default-src 'self';
+      script-src 'self' https://cdn.jsdelivr.net;
+      style-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com 'unsafe-inline';
+      font-src https://fonts.gstatic.com https://cdn.jsdelivr.net;
+      img-src 'self' data:;
+      connect-src 'self' https://*.supabase.co wss://*.supabase.co;
+      frame-src 'none';
+      object-src 'none';
+      base-uri 'self';
+    "
+    />
     <title>UniLend &mdash; Login</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -628,6 +642,64 @@
                 required
                 autocomplete="new-password"
               />
+            </div>
+            <!-- Password strength meter -->
+            <div class="mt-2" id="pwStrengthWrap" style="display: none">
+              <div style="display: flex; gap: 4px; margin-bottom: 4px">
+                <div
+                  class="pw-seg"
+                  id="pwSeg1"
+                  style="
+                    height: 4px;
+                    flex: 1;
+                    border-radius: 99px;
+                    background: #e5e7eb;
+                    transition: background 0.25s;
+                  "
+                ></div>
+                <div
+                  class="pw-seg"
+                  id="pwSeg2"
+                  style="
+                    height: 4px;
+                    flex: 1;
+                    border-radius: 99px;
+                    background: #e5e7eb;
+                    transition: background 0.25s;
+                  "
+                ></div>
+                <div
+                  class="pw-seg"
+                  id="pwSeg3"
+                  style="
+                    height: 4px;
+                    flex: 1;
+                    border-radius: 99px;
+                    background: #e5e7eb;
+                    transition: background 0.25s;
+                  "
+                ></div>
+                <div
+                  class="pw-seg"
+                  id="pwSeg4"
+                  style="
+                    height: 4px;
+                    flex: 1;
+                    border-radius: 99px;
+                    background: #e5e7eb;
+                    transition: background 0.25s;
+                  "
+                ></div>
+              </div>
+              <div
+                id="pwStrengthLabel"
+                style="
+                  font-size: 0.74rem;
+                  font-weight: 600;
+                  letter-spacing: 0.2px;
+                  color: #9ca3af;
+                "
+              ></div>
             </div>
           </div>
 
