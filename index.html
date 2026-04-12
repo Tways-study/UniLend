@@ -498,6 +498,38 @@
       .signup-divider-line {
         border-color: rgba(0, 0, 0, 0.1);
       }
+
+      /* Password toggle: visible focus ring for keyboard users */
+      .btn-pass-toggle:focus-visible {
+        outline: 2px solid var(--gold-light);
+        outline-offset: -2px;
+        border-radius: 0 0.375rem 0.375rem 0;
+        color: var(--gold);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .login-card {
+          animation: none;
+          opacity: 1;
+          transform: none;
+        }
+        .brand-logo-img {
+          animation: none;
+          opacity: 1;
+          transform: none;
+        }
+        .btn-login,
+        .btn-register,
+        .btn-signup {
+          transition: none;
+        }
+        .btn-login:hover,
+        .btn-register:hover,
+        .btn-signup:hover {
+          transform: none;
+          box-shadow: none;
+        }
+      }
     </style>
   </head>
   <body>
@@ -586,7 +618,6 @@
                 class="btn-pass-toggle"
                 type="button"
                 id="togglePass"
-                tabindex="-1"
                 aria-label="Toggle password visibility"
               >
                 <i class="bi bi-eye"></i>

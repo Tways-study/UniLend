@@ -118,6 +118,9 @@
         color: var(--gold-light);
         transform: translateY(-1px);
       }
+      .navbar-toggler-icon {
+        filter: invert(1);
+      }
       .gold-bar {
         height: 3px;
         background: linear-gradient(
@@ -483,6 +486,14 @@
         animation: urgentPulse 2.4s ease-in-out infinite;
       }
 
+      /* Stat grid: 3-per-row at md breakpoint (prevents lone 5th card) */
+      @media (min-width: 768px) and (max-width: 991px) {
+        #statsRow > [class*="col-"] {
+          width: 33.333333%;
+          flex: 0 0 33.333333%;
+        }
+      }
+
       /* ---- Mobile action button sizing ---- */
       @media (max-width: 576px) {
         .btn-approve,
@@ -679,6 +690,43 @@
       .skeleton-row {
         height: 52px;
         border-bottom: 1px solid #f5f5f4;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        main {
+          animation: none;
+          opacity: 1;
+          transform: none;
+        }
+        .skeleton {
+          animation: none;
+          background: #e5e7eb;
+        }
+        .toast-custom {
+          animation: none;
+        }
+        .stat-card.overdue-alert {
+          animation: none;
+        }
+        .stat-card,
+        .btn-approve,
+        .btn-deny,
+        .btn-restock,
+        .btn-return,
+        .btn-logout {
+          transition: none;
+        }
+        .stat-card:hover {
+          transform: none;
+        }
+        .btn-approve:hover,
+        .btn-deny:hover,
+        .btn-restock:hover,
+        .btn-return:hover,
+        .btn-logout:hover {
+          transform: none;
+          box-shadow: none;
+        }
       }
     </style>
   </head>

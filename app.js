@@ -889,12 +889,15 @@ if (currentPage === "admin") {
         const equipId  = row.dataset.equipmentId;
         btn.disabled   = true;
         btn.innerHTML  = `<span class="spinner-border spinner-border-sm"></span>`;
-        const { error: e1 } = await supabase
-          .from("reservations").update({ status: "approved" }).eq("id", reservId);
-        const { error: e2 } = await supabase
-          .rpc("decrement_available", { equipment_id: equipId });
-        if (e1 || e2) {
-          showToast("Failed to approve request.", "error");
+        const { error } = await supabase
+          .rpc("approve_reservation", { reservation_id: reservId, equipment_id: equipId });
+        if (error) {
+          showToast(
+            error.message?.includes("no_stock_available")
+              ? "Cannot approve — item is out of stock."
+              : "Failed to approve request.",
+            "error"
+          );
           btn.disabled = false;
           btn.innerHTML = `<i class="bi bi-check-lg"></i> Approve`;
         } else {
@@ -1049,8 +1052,6 @@ if (currentPage === "admin") {
   document.getElementById("confirmRestockBtn")?.addEventListener("click", async () => {
     const amount  = parseInt(document.getElementById("restockAmount").value, 10);
     const itemId  = document.getElementById("restockItemId").value;
-    const total   = parseInt(document.getElementById("restockCurrentTotal").value, 10);
-    const avail   = parseInt(document.getElementById("restockCurrentAvail").value, 10);
     const btn     = document.getElementById("confirmRestockBtn");
 
     if (!amount || amount < 1) {
@@ -1066,9 +1067,7 @@ if (currentPage === "admin") {
     btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>Restocking\u2026`;
 
     const { error } = await supabase
-      .from("equipment")
-      .update({ total_stock: total + amount, available: avail + amount })
-      .eq("id", itemId);
+      .rpc("restock_equipment", { eq_id: itemId, amount });
 
     if (error) {
       showToast("Failed to restock. Please try again.", "error");

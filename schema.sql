@@ -126,9 +126,62 @@ create index if not exists reservations_status_idx on public.reservations (statu
 create or replace function public.decrement_available(equipment_id uuid)
 returns void as $$
 begin
+  if not public.is_admin() then
+    raise exception 'permission denied: admin role required';
+  end if;
   update public.equipment
   set available = available - 1
   where id = equipment_id and available > 0;
+end;
+$$ language plpgsql security definer;
+
+-- ============================================================
+-- 4b. ATOMIC APPROVE FUNCTION
+-- Approves a reservation and decrements available stock in a
+-- single transaction to prevent over-booking race conditions.
+-- Admin guard prevents non-admin callers from invoking directly.
+-- ============================================================
+create or replace function public.approve_reservation(
+  reservation_id uuid,
+  equipment_id   uuid
+)
+returns void as $$
+begin
+  if not public.is_admin() then
+    raise exception 'permission denied: admin role required';
+  end if;
+  -- Abort if no stock is available (prevents over-booking)
+  if (select available from public.equipment where id = equipment_id for update) <= 0 then
+    raise exception 'no_stock_available';
+  end if;
+  update public.reservations
+    set status = 'approved'
+    where id = reservation_id and status = 'pending';
+  update public.equipment
+    set available = available - 1
+    where id = equipment_id and available > 0;
+end;
+$$ language plpgsql security definer;
+
+-- ============================================================
+-- 4c. ATOMIC RESTOCK FUNCTION
+-- Increments total_stock and available relatively to prevent
+-- TOCTOU race conditions caused by stale DOM snapshots.
+-- Admin guard prevents non-admin callers from invoking directly.
+-- ============================================================
+create or replace function public.restock_equipment(eq_id uuid, amount integer)
+returns void as $$
+begin
+  if not public.is_admin() then
+    raise exception 'permission denied: admin role required';
+  end if;
+  if amount < 1 then
+    raise exception 'amount must be at least 1';
+  end if;
+  update public.equipment
+    set total_stock = total_stock + amount,
+        available   = available   + amount
+    where id = eq_id;
 end;
 $$ language plpgsql security definer;
 
@@ -177,7 +230,10 @@ select using (
 
 create policy "Students can create their own reservations" on public.reservations for insert
 with
-    check (student_id = auth.uid ());
+    check (
+        student_id = auth.uid ()
+        and status = 'pending'
+    );
 
 create policy "Only admins can update reservation status" on public.reservations for
 update using (public.is_admin ());
@@ -226,6 +282,16 @@ create or replace function public.return_equipment(
 )
 returns void as $$
 begin
+  if not public.is_admin() then
+    raise exception 'permission denied: admin role required';
+  end if;
+  -- Validate that equipment_id matches the reservation to prevent stock corruption
+  if not exists (
+    select 1 from public.reservations
+    where id = reservation_id and equipment_id = return_equipment.equipment_id
+  ) then
+    raise exception 'equipment_id does not match reservation';
+  end if;
   update public.reservations
   set status = 'returned'
   where id = reservation_id and status = 'approved';
