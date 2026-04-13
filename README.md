@@ -69,6 +69,10 @@ UniLend/
 ├── student.html        # Student dashboard UI
 ├── admin.html          # Admin dashboard UI
 │
+├── index.css           # Styles for login/student/admin pages (shared)
+├── admin.css           # Admin-specific overrides and layout styles
+├── student.css         # Student dashboard specific styles
+│
 ├── app.js              # All JavaScript logic for every page
 ├── supabase-config.js  # Supabase client initialisation (URL + anon key)
 │
