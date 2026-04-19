@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Deep maroon background -->
+  <circle cx="16" cy="16" r="16" fill="#8b1a1a"/>
+
+  <!-- Graduation cap mortarboard (diamond top) -->
+  <polygon points="16,8 27,13 16,18 5,13" fill="#f5b730"/>
+
+  <!-- Underside depth on right face -->
+  <polygon points="16,18 27,13 27,14.5 16,19.5" fill="#a85e08"/>
+
+  <!-- Tassel cord from right corner -->
+  <line x1="27" y1="13" x2="27" y2="21" stroke="#f5b730" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Tassel pom-pom -->
+  <circle cx="27" cy="23.5" r="2.5" fill="#f5b730"/>
+</svg>
