@@ -1,35 +1,56 @@
-# UniLend — University Equipment Reservation System
+<div align="center">
+  <h1>UniLend</h1>
+  <em>University Equipment Reservation System</em>
 
-UniLend is a web-based equipment management system built for a university setting. It allows students to browse and reserve equipment for classes or events, and gives administrators full control over inventory, approvals, and overdue tracking — all in real time.
+<br /><br />
+
+[![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=flat&logo=html5&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/HTML)
+[![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat&logo=css3&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/CSS)
+[![JavaScript](https://img.shields.io/badge/JavaScript-ES2020+-F7DF1E?style=flat&logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
+[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=flat&logo=supabase&logoColor=white)](https://supabase.com)
+[![Bootstrap](https://img.shields.io/badge/Bootstrap-5.3.3-7952B3?style=flat&logo=bootstrap&logoColor=white)](https://getbootstrap.com)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white)](https://www.postgresql.org)
+[![License](https://img.shields.io/badge/License-Educational-lightgrey?style=flat)](./README.md#license)
+
+</div>
 
 ---
 
 ## Table of Contents
 
-1. [Features](#features)
-2. [Tech Stack](#tech-stack)
-3. [File Structure](#file-structure)
-4. [How the Codebase Works](#how-the-codebase-works)
-5. [Database Schema](#database-schema)
-6. [Setup Guide](#setup-guide)
-7. [Changelog](#changelog)
-8. [License](#license)
+1. [Overview](#overview)
+2. [Features](#features)
+3. [Tech Stack](#tech-stack)
+4. [File & Directory Structure](#file--directory-structure)
+5. [Architecture & How the Code Works Together](#architecture--how-the-code-works-together)
+6. [Database Schema](#database-schema)
+7. [Getting Started](#getting-started)
+8. [Changelog](#changelog)
+9. [Contributing](#contributing)
+10. [License](#license)
+
+---
+
+## Overview
+
+UniLend is a zero-dependency, browser-only web application for managing university equipment loans. Students browse available gear and submit timed reservations; admins approve or deny requests, track overdue returns, and restock inventory — all with live updates delivered via Supabase Realtime. No build step, no local backend, and no package installs are required to run the project.
 
 ---
 
 ## Features
 
-| Feature            | Details                                                                   |
-| ------------------ | ------------------------------------------------------------------------- |
-| Student Dashboard  | Browse equipment, reserve with date and time, track request status        |
-| Admin Dashboard    | Approve/deny requests, track overdue items, restock inventory, live stats |
-| Role-Based Auth    | Separate login flows for students and admins via Supabase Auth            |
-| Email Verification | New accounts must verify email before logging in                          |
-| Password Reset     | Reset password via emailed link, update from within the app               |
-| Time Selection     | Students pick a pickup time and return time when reserving                |
-| Overdue Detection  | Flags approved reservations past their return datetime                    |
-| Real-Time Updates  | Dashboards sync live using Supabase Realtime channels                     |
-| Responsive UI      | Works on desktop and mobile via Bootstrap 5                               |
+| Feature            | Details                                                                          |
+| ------------------ | -------------------------------------------------------------------------------- |
+| Student Dashboard  | Browse equipment, reserve with date and time, track request status               |
+| Admin Dashboard    | Approve/deny requests, track overdue items, restock inventory, live stats        |
+| Role-Based Auth    | Separate login flows for students and admins via Supabase Auth                   |
+| Email Verification | New accounts must verify email before logging in                                 |
+| Password Reset     | Reset password via emailed link, update from within the app                      |
+| Time Selection     | Students pick a pickup time and return time when reserving                       |
+| Overdue Detection  | Flags approved reservations past their full return datetime                      |
+| Real-Time Updates  | Dashboards sync live using Supabase Realtime channels                            |
+| Atomic Operations  | Approve, return, and restock all use server-side RPCs to prevent race conditions |
+| Responsive UI      | Works on desktop and mobile via Bootstrap 5                                      |
 
 ---
 
@@ -60,34 +81,61 @@ All frontend dependencies are loaded from CDN — **no npm install or build step
 
 ---
 
-## File Structure
+## File & Directory Structure
 
 ```
 UniLend/
-│
-├── index.html          # Login, register, forgot password, reset password
-├── student.html        # Student dashboard UI
-├── admin.html          # Admin dashboard UI
-│
-├── index.css           # Styles for login/student/admin pages (shared)
-├── admin.css           # Admin-specific overrides and layout styles
-├── student.css         # Student dashboard specific styles
-│
-├── app.js              # All JavaScript logic for every page
-├── supabase-config.js  # Supabase client initialisation (URL + anon key)
-│
-├── schema.sql          # Full PostgreSQL schema + seed data + migrations
-│
-├── assets/
-│   └── usa-logo.png    # University logo used in navbar and login card
-│
-├── package.json        # Project metadata (no runtime dependencies)
-└── README.md           # This file
++-- index.html          # Login, register, forgot password, reset password
++-- student.html        # Student dashboard UI
++-- admin.html          # Admin dashboard UI
+|
++-- index.css           # Shared styles for auth pages
++-- student.css         # Student dashboard styles
++-- admin.css           # Admin dashboard styles and overrides
+|
++-- app.js              # All client-side logic for every page (single ES module)
++-- supabase-config.js  # Supabase client initialisation — URL + anon key go here
+|
++-- schema.sql          # Full PostgreSQL schema, seed data, RPCs, RLS, and migrations
+|
++-- assets/
+|   \-- usa-logo.png    # University logo used in the navbar and login card
+|
++-- package.json        # Project metadata (no runtime dependencies or build scripts)
+\-- README.md           # This file
 ```
+
+**Key design decisions:**
+
+- **Single JS file** — `app.js` detects the current page at runtime and executes only the relevant block, avoiding any bundler or module routing complexity.
+- **CDN-only dependencies** — Bootstrap, Bootstrap Icons, Google Fonts, and the Supabase JS client are all loaded from CDN. There is nothing to install or build locally.
+- **One SQL file** — `schema.sql` contains everything needed to recreate the database from scratch, plus idempotent migration blocks for upgrading an existing deployment.
+- **No `.env` file** — Supabase credentials are stored directly in `supabase-config.js`. See the [Environment Variables](#-environment-variables) section for how to handle this safely.
 
 ---
 
-## How the Codebase Works
+## Architecture & How the Code Works Together
+
+The architecture follows a **serverless, client-rendered** pattern. The browser loads static HTML/CSS/JS files from any web server; all data access, auth, and real-time events are handled directly against Supabase over HTTPS and WebSockets — there is no custom backend server.
+
+```mermaid
+graph TD
+    Browser["Browser (HTML / CSS / JS)"]
+    AppJS["app.js — Page Controller"]
+    SupaClient["supabase-config.js — Supabase Client"]
+    Auth["Supabase Auth\n(register / login / reset)"]
+    DB["Supabase Database\n(PostgreSQL + RLS)"]
+    RPCs["RPC Functions\n(approve / return / restock)"]
+    RT["Supabase Realtime\n(live DB events)"]
+
+    Browser --> AppJS
+    AppJS --> SupaClient
+    SupaClient --> Auth
+    SupaClient --> DB
+    SupaClient --> RPCs
+    SupaClient --> RT
+    RT -->|"equipment & reservations changes"| AppJS
+```
 
 ### Entry Point & Page Detection — `app.js`
 
@@ -233,10 +281,12 @@ Mirrors `auth.users`. Auto-populated by a trigger when any new Supabase Auth use
 
 ### RPC Functions
 
-| Function                                         | Purpose                                                                                |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| `decrement_available(equipment_id)`              | Atomically reduces `available` by 1 (prevents race conditions on concurrent approvals) |
-| `return_equipment(reservation_id, equipment_id)` | Sets status to `returned` and increments `available`                                   |
+| Function                                            | Purpose                                                                                        |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `approve_reservation(reservation_id, equipment_id)` | Atomically sets status to `approved` and decrements `available` in one transaction             |
+| `return_equipment(reservation_id, equipment_id)`    | Sets status to `returned` and increments `available`; validates equipment_id match             |
+| `restock_equipment(eq_id, amount)`                  | Increments both `total_stock` and `available` relatively to avoid TOCTOU race conditions       |
+| `decrement_available(equipment_id)`                 | Legacy: atomically reduces `available` by 1 (superseded by `approve_reservation` for new code) |
 
 ### Row Level Security
 
@@ -246,14 +296,14 @@ Mirrors `auth.users`. Auto-populated by a trigger when any new Supabase Auth use
 
 ---
 
-## Setup Guide
+## Getting Started
 
 ### Prerequisites
 
 - A free [Supabase](https://supabase.com) account
-- A code editor (VS Code recommended)
-- A local web server (VS Code Live Server extension, or any static server)
-  > **Why a server?** `app.js` uses ES Modules (`import`/`export`) which require HTTP — opening `index.html` directly as a `file://` URL will not work.
+- A code editor (**VS Code** recommended)
+- A local web server — VS Code [Live Server](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer) extension, Python, or Node.js `npx serve`
+  > **Why a server?** `app.js` uses ES Modules (`import`/`export`) which require an HTTP origin. Opening `index.html` as a `file://` URL will not work.
 
 ---
 
@@ -286,14 +336,25 @@ This creates all tables, RLS policies, triggers, RPC functions, seeds the equipm
 
 ### Step 4 — Configure the Supabase client
 
+#### 🔑 Environment Variables
+
+This project does not use a `.env` file. Supabase credentials are set directly in `supabase-config.js`. **Never commit real secrets to a public repository.** Replace the placeholder values with your own project credentials:
+
 1. In Supabase, go to **Project Settings → API**
 2. Copy your **Project URL** and **anon public** key
 3. Open `supabase-config.js` and replace the two values:
 
 ```js
-const SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co";
-const SUPABASE_ANON = "YOUR_ANON_KEY";
+const SUPABASE_URL = "your_supabase_project_url_here";
+const SUPABASE_ANON = "your_supabase_anon_key_here";
 ```
+
+| Variable        | Description                           | Required | Where to Obtain                             |
+| --------------- | ------------------------------------- | -------- | ------------------------------------------- |
+| `SUPABASE_URL`  | Your Supabase project's REST endpoint | Yes      | Supabase Dashboard → Project Settings → API |
+| `SUPABASE_ANON` | Public anon key (safe for browsers)   | Yes      | Supabase Dashboard → Project Settings → API |
+
+> The anon key is safe to expose in browser code because Row Level Security policies enforce all access rules at the database level.
 
 ---
 
@@ -383,6 +444,23 @@ npx serve .
 - Password minimum raised from 6 to 8 characters on registration
 - Login handler explicitly catches and handles `"Email not confirmed"` errors
 - `PASSWORD_RECOVERY` listener registered before `getSession()` to prevent auto-redirect race condition during password reset flow
+
+---
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature-name`
+3. Commit your changes: `git commit -m "feat: describe your change"`
+4. Push the branch: `git push origin feature/your-feature-name`
+5. Open a Pull Request against `main` and describe what you changed and why
+
+**Branch naming conventions:**
+
+- `feature/` — new functionality
+- `fix/` — bug fixes
+- `docs/` — documentation-only changes
+- `chore/` — schema migrations, dependency updates, config changes
 
 ---
 
