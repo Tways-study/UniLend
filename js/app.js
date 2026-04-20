@@ -907,16 +907,18 @@ if (currentPage === "admin") {
         const { error } = await supabase
           .rpc("approve_reservation", { reservation_id: reservId, equipment_id: equipId });
         if (error) {
+          console.error("[UniLend] approve_reservation error:", error);
           showToast(
             error.message?.includes("no_stock_available")
               ? "Cannot approve — item is out of stock."
-              : "Failed to approve request.",
+              : `Failed to approve request. (${error.message ?? error.code ?? "unknown error"})`,
             "error"
           );
           btn.disabled = false;
           btn.innerHTML = `<i class="bi bi-check-lg"></i> Approve`;
         } else {
           showToast("Request approved.", "success");
+          await loadPendingRequests();
         }
       });
     });
