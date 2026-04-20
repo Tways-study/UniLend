@@ -540,6 +540,7 @@ if (currentPage === "student") {
                 class="btn btn-sm ${avail ? 'btn-primary' : 'btn-outline-secondary'} reserve-btn w-100"
                 data-item-id="${safeId}"
                 data-item-name="${safeName}"
+                data-item-available="${escapeHTML(String(item.available))}"
                 ${!avail ? 'disabled' : ''}>
                 <i class="bi ${avail ? 'bi-calendar-plus' : 'bi-x-circle'} me-1"></i>${avail ? 'Reserve' : 'Unavailable'}
               </button>
@@ -557,6 +558,9 @@ if (currentPage === "student") {
         document.getElementById("reserveDate").min           = new Date().toISOString().split("T")[0];
         document.getElementById("pickupTime").value          = "08:00";
         document.getElementById("returnTime").value          = "17:00";
+        const qtyInput = document.getElementById("reserveQty");
+        qtyInput.value = "1";
+        qtyInput.max   = btn.dataset.itemAvailable;
         new bootstrap.Modal(document.getElementById("reserveModal")).show();
       });
     });
@@ -635,6 +639,7 @@ if (currentPage === "student") {
       const returnFmt = r.return_time ? escapeHTML(r.return_time.slice(0, 5)) : "";
       const safeDate  = escapeHTML(r.reservation_date ?? "");
       const safeName  = escapeHTML(r.equipment?.name ?? "\u2014");
+      const safeQty   = escapeHTML(String(r.quantity ?? 1));
       const scheduleHtml = pickupFmt && returnFmt
         ? `${safeDate}<br><small class="text-muted">${pickupFmt} \u2013 ${returnFmt}</small>`
         : safeDate;
@@ -642,6 +647,7 @@ if (currentPage === "student") {
         <tr>
           <td class="fw-medium">${safeName}</td>
           <td>${scheduleHtml}</td>
+          <td class="text-center">${safeQty}</td>
           <td><span class="status-badge status-${escapeHTML(displayStatus)}"><i class="bi ${icon}"></i>${escapeHTML(statusText)}</span></td>
         </tr>`;
     }).join("");
@@ -665,11 +671,16 @@ if (currentPage === "student") {
     const pickupVal    = document.getElementById("pickupTime").value;
     const returnVal    = document.getElementById("returnTime").value;
     const itemId       = document.getElementById("modalItemId").value;
+    const qtyInput     = document.getElementById("reserveQty");
+    const qtyVal       = parseInt(qtyInput.value, 10);
+    const qtyMax       = parseInt(qtyInput.max, 10);
     const btn          = document.getElementById("confirmReserveBtn");
 
     if (!dateVal) { showToast("Please select a reservation date.", "error"); return; }
     if (!pickupVal || !returnVal) { showToast("Please select pickup and return times.", "error"); return; }
     if (pickupVal >= returnVal) { showToast("Return time must be after pickup time.", "error"); return; }
+    if (!qtyVal || qtyVal < 1) { showToast("Please enter a valid quantity.", "error"); return; }
+    if (qtyMax && qtyVal > qtyMax) { showToast(`Only ${qtyMax} unit(s) available.`, "error"); return; }
 
     btn.disabled = true;
     btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>Reserving\u2026`;
@@ -681,6 +692,7 @@ if (currentPage === "student") {
       reservation_date: dateVal,
       pickup_time:      pickupVal,
       return_time:      returnVal,
+      quantity:         qtyVal,
       status:           "pending"
     });
 
@@ -691,6 +703,7 @@ if (currentPage === "student") {
       document.getElementById("reserveDate").value  = "";
       document.getElementById("pickupTime").value   = "08:00";
       document.getElementById("returnTime").value   = "17:00";
+      document.getElementById("reserveQty").value   = "1";
       showToast("Reservation submitted successfully!", "success");
       await loadMyRequests();
     }
@@ -849,7 +862,7 @@ if (currentPage === "admin") {
 
     if (!data?.length) {
       tbody.innerHTML = `
-        <tr><td colspan="4" class="text-center py-4">
+        <tr><td colspan="5" class="text-center py-4">
           <div class="empty-state">
             <i class="bi bi-check-circle"></i>
             <div class="empty-title">All caught up!</div>
@@ -867,6 +880,7 @@ if (currentPage === "admin") {
       const safeEqName  = escapeHTML(r.equipment?.name ?? "\u2014");
       const safeResId   = escapeHTML(r.id);
       const safeEqId    = escapeHTML(r.equipment_id);
+      const safeQty     = escapeHTML(String(r.quantity ?? 1));
       const scheduleHtml = pickupFmt && returnFmt
         ? `${safeDate}<br><small class="text-muted">${pickupFmt} \u2013 ${returnFmt}</small>`
         : safeDate;
@@ -875,6 +889,7 @@ if (currentPage === "admin") {
         <td>${safeEmail}</td>
         <td class="fw-medium">${safeEqName}</td>
         <td>${scheduleHtml}</td>
+        <td class="text-center">${safeQty}</td>
         <td class="text-end">
           <button class="btn-approve me-1 approve-btn"><i class="bi bi-check-lg"></i> Approve</button>
           <button class="btn-deny deny-btn"><i class="bi bi-x-lg"></i> Deny</button>

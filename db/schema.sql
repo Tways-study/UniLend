@@ -103,6 +103,9 @@ create table if not exists public.reservations (
     student_email text not null,
     equipment_id uuid not null references public.equipment (id) on delete cascade,
     reservation_date date not null,
+    pickup_time time,
+    return_time time,
+    quantity integer not null default 1 check (quantity >= 1),
     status text not null check (
         status in (
             'pending',

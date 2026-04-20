@@ -135,6 +135,7 @@
                 <tr>
                   <th>Item</th>
                   <th>Schedule</th>
+                  <th class="text-center">Qty</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -169,6 +170,22 @@
           <div class="modal-body">
             <p class="mb-2">Item: <strong id="modalItemName"></strong></p>
             <input type="hidden" id="modalItemId" />
+            <div class="mb-3">
+              <label
+                for="reserveQty"
+                class="form-label fw-semibold"
+                style="font-size: 0.83rem"
+                >Quantity</label
+              >
+              <input
+                type="number"
+                class="form-control"
+                id="reserveQty"
+                min="1"
+                value="1"
+                required
+              />
+            </div>
             <div class="mb-3">
               <label
                 for="reserveDate"
