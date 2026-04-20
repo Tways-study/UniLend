@@ -711,15 +711,103 @@ if (currentPage === "student") {
     btn.innerHTML = `<i class="bi bi-check-circle me-1"></i>Confirm`;
   });
 
-  // ---- Logout ----
-  document.getElementById("logoutBtn")?.addEventListener("click", async () => {
-    equipmentChannel && supabase.removeChannel(equipmentChannel);
-    requestsChannel  && supabase.removeChannel(requestsChannel);
-    await supabase.auth.signOut();
-    window.location.href = "index.html";
+  // ---- QR / Barcode Scanner (Student) ----
+  let studentScanner  = null;
+  let scanProcessed   = false;
+  const scannerModalEl = document.getElementById("scannerModal");
+
+  document.getElementById("scanToReserveBtn")?.addEventListener("click", () => {
+    scanProcessed = false;
+    new bootstrap.Modal(scannerModalEl).show();
   });
-  } // end: if (session) guard
-}
+
+  scannerModalEl?.addEventListener("shown.bs.modal", async () => {
+    const statusEl = document.getElementById("scanStatus");
+    scanProcessed  = false;
+    statusEl.innerHTML = `<i class="bi bi-camera me-1"></i>Starting camera&hellip;`;
+    try {
+      studentScanner = new Html5Qrcode("qrScanRegion", { verbose: false });
+      await studentScanner.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: (w, h) => { const s = Math.floor(Math.min(w, h) * 0.72); return { width: s, height: s }; },
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.CODE_39,
+          ],
+        },
+        (decodedText) => handleStudentScan(decodedText),
+        null
+      );
+      statusEl.innerHTML = `<i class="bi bi-camera-fill me-1 text-success"></i>Point at a UniLend QR code or equipment barcode`;
+    } catch (err) {
+      statusEl.textContent = "Camera access denied or unavailable on this device.";
+      console.warn("[UniLend] Scanner start error:", err);
+    }
+  });
+
+  scannerModalEl?.addEventListener("hide.bs.modal", async () => {
+    if (studentScanner) {
+      try {
+        if (studentScanner.isScanning) await studentScanner.stop();
+        studentScanner.clear();
+      } catch (_) { /* ignore cleanup errors */ }
+      studentScanner = null;
+    }
+  });
+
+  function handleStudentScan(rawText) {
+    if (scanProcessed) return;
+
+    // Accept both prefixed "unilend:eq:<uuid>" and bare UUID
+    const equipId = rawText.startsWith("unilend:eq:")
+      ? rawText.replace("unilend:eq:", "")
+      : rawText;
+
+    const item = allEquipment.find(e => e.id === equipId);
+    if (!item) {
+      document.getElementById("scanStatus").innerHTML =
+        `<i class="bi bi-exclamation-circle me-1" style="color:#b91c1c"></i>Equipment not found. Try again.`;
+      return;
+    }
+
+    scanProcessed = true;
+    if (navigator.vibrate) navigator.vibrate(100);
+
+    // Stop scanner then dismiss modal
+    const stopAndClose = () => {
+      bootstrap.Modal.getInstance(scannerModalEl)?.hide();
+    };
+    if (studentScanner?.isScanning) {
+      studentScanner.stop().then(stopAndClose).catch(stopAndClose);
+    } else {
+      stopAndClose();
+    }
+
+    // Once scanner modal is fully gone, open reserve modal pre-filled
+    scannerModalEl.addEventListener("hidden.bs.modal", () => {
+      if (item.available > 0) {
+        document.getElementById("modalItemName").textContent = item.name;
+        document.getElementById("modalItemId").value         = item.id;
+        document.getElementById("reserveDate").value         = "";
+        document.getElementById("reserveDate").min           = new Date().toISOString().split("T")[0];
+        document.getElementById("pickupTime").value          = "08:00";
+        document.getElementById("returnTime").value          = "17:00";
+        const qtyInput = document.getElementById("reserveQty");
+        qtyInput.value = "1";
+        qtyInput.max   = item.available;
+        new bootstrap.Modal(document.getElementById("reserveModal")).show();
+      } else {
+        showToast(`"${item.name}" is currently unavailable.`, "error");
+      }
+    }, { once: true });
+  }
+
+  // ---- Logout ----
 
 // ============================================================
 // ADMIN DASHBOARD
@@ -1095,6 +1183,172 @@ if (currentPage === "admin") {
 
     btn.disabled = false;
     btn.innerHTML = `<i class="bi bi-plus-circle me-1"></i>Restock`;
+  });
+
+  // ---- QR / Barcode Scanner (Admin — Scan to Return) ----
+  let adminScanner       = null;
+  let adminScanProcessed = false;
+  const adminScannerModalEl = document.getElementById("adminScannerModal");
+
+  document.getElementById("scanReturnBtn")?.addEventListener("click", () => {
+    adminScanProcessed = false;
+    new bootstrap.Modal(adminScannerModalEl).show();
+  });
+
+  adminScannerModalEl?.addEventListener("shown.bs.modal", async () => {
+    const statusEl    = document.getElementById("adminScanStatus");
+    adminScanProcessed = false;
+    statusEl.innerHTML = `<i class="bi bi-camera me-1"></i>Starting camera&hellip;`;
+    try {
+      adminScanner = new Html5Qrcode("adminQrScanRegion", { verbose: false });
+      await adminScanner.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: (w, h) => { const s = Math.floor(Math.min(w, h) * 0.72); return { width: s, height: s }; },
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.CODE_39,
+          ],
+        },
+        (decodedText) => handleAdminReturnScan(decodedText),
+        null
+      );
+      statusEl.innerHTML = `<i class="bi bi-camera-fill me-1 text-success"></i>Scan the QR code on the returned equipment`;
+    } catch (err) {
+      statusEl.textContent = "Camera access denied or unavailable on this device.";
+      console.warn("[UniLend] Admin scanner start error:", err);
+    }
+  });
+
+  adminScannerModalEl?.addEventListener("hide.bs.modal", async () => {
+    if (adminScanner) {
+      try {
+        if (adminScanner.isScanning) await adminScanner.stop();
+        adminScanner.clear();
+      } catch (_) { /* ignore cleanup errors */ }
+      adminScanner = null;
+    }
+  });
+
+  async function handleAdminReturnScan(rawText) {
+    if (adminScanProcessed) return;
+
+    const equipId = rawText.startsWith("unilend:eq:")
+      ? rawText.replace("unilend:eq:", "")
+      : rawText;
+
+    adminScanProcessed = true;
+    const statusEl = document.getElementById("adminScanStatus");
+    statusEl.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>Looking up reservation&hellip;`;
+
+    const { data, error } = await supabase
+      .from("reservations")
+      .select("*, equipment(name)")
+      .eq("equipment_id", equipId)
+      .eq("status", "approved")
+      .order("reservation_date", { ascending: true })
+      .limit(1);
+
+    if (error || !data?.length) {
+      statusEl.innerHTML =
+        `<i class="bi bi-exclamation-circle me-1" style="color:#b45309"></i>No active reservation found for this equipment.`;
+      adminScanProcessed = false; // allow retry
+      return;
+    }
+
+    if (navigator.vibrate) navigator.vibrate(100);
+
+    const reservation = data[0];
+    const stopAndClose = () => {
+      bootstrap.Modal.getInstance(adminScannerModalEl)?.hide();
+    };
+    if (adminScanner?.isScanning) {
+      adminScanner.stop().then(stopAndClose).catch(stopAndClose);
+    } else {
+      stopAndClose();
+    }
+
+    adminScannerModalEl.addEventListener("hidden.bs.modal", () => {
+      showConfirmModal({
+        title:     "Confirm Equipment Return",
+        body:      `Mark "${reservation.equipment?.name}" as returned by ${reservation.student_email}? Stock will be restored.`,
+        okLabel:   "Confirm Return",
+        okColor:   "#059669",
+        onConfirm: async () => {
+          const { error: rpcErr } = await supabase
+            .rpc("return_equipment", {
+              reservation_id: reservation.id,
+              equipment_id:   reservation.equipment_id,
+            });
+          if (rpcErr) {
+            showToast("Failed to mark as returned.", "error");
+          } else {
+            showToast("Equipment marked as returned.", "success");
+          }
+        },
+      });
+    }, { once: true });
+  }
+
+  // ---- QR Code Gallery (Admin) ----
+  document.getElementById("viewQrCodesBtn")?.addEventListener("click", async () => {
+    const gallery = document.getElementById("qrGallery");
+    if (!gallery) return;
+
+    gallery.innerHTML = `<div class="text-center py-3 w-100"><span class="spinner-border spinner-border-sm me-2"></span>Generating QR codes&hellip;</div>`;
+    new bootstrap.Modal(document.getElementById("qrGalleryModal")).show();
+
+    const { data } = await supabase.from("equipment").select("*").order("name");
+    gallery.innerHTML = "";
+
+    (data ?? []).forEach(item => {
+      const qrData = `unilend:eq:${item.id}`;
+
+      const card   = document.createElement("div");
+      card.className = "qr-item";
+
+      const canvas = document.createElement("canvas");
+
+      const label  = document.createElement("div");
+      label.className = "qr-label";
+      label.textContent = item.name;
+
+      const dlBtn  = document.createElement("button");
+      dlBtn.className = "btn-qr-download";
+      dlBtn.innerHTML = `<i class="bi bi-download me-1"></i>Download`;
+      dlBtn.addEventListener("click", () => {
+        const link    = document.createElement("a");
+        // Sanitise filename — strip characters that aren't alphanumeric/dash/space
+        const safeName = item.name.replace(/[^a-zA-Z0-9 \-]/g, "").trim() || "equipment";
+        link.download = `QR-UniLend-${safeName.replace(/\s+/g, "-")}.png`;
+        link.href     = canvas.toDataURL("image/png");
+        link.click();
+      });
+
+      card.appendChild(canvas);
+      card.appendChild(label);
+      card.appendChild(dlBtn);
+      gallery.appendChild(card);
+
+      if (typeof QRCode !== "undefined") {
+        QRCode.toCanvas(
+          canvas,
+          qrData,
+          { width: 140, margin: 1, color: { dark: "#1a1a2e", light: "#ffffff" } },
+          (err) => { if (err) console.warn("[UniLend] QR gen error:", err); }
+        );
+      } else {
+        canvas.style.display = "none";
+        const placeholder = document.createElement("div");
+        placeholder.className = "qr-unavailable";
+        placeholder.innerHTML = `<i class="bi bi-qr-code"></i><span>${escapeHTML(item.id.slice(0, 8))}&hellip;</span>`;
+        card.insertBefore(placeholder, canvas);
+      }
+    });
   });
 
   // ---- Logout ----

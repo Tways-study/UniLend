@@ -634,3 +634,89 @@ main {
   .btn-logout:hover,
   .reserve-btn:not([disabled]):hover { transform: none; box-shadow: none !important; }
 }
+
+/* ============================================================
+   QR / Barcode Scanner
+   ============================================================ */
+
+/* Scan button in toolbar */
+.btn-scan {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.46rem 0.9rem;
+  background: linear-gradient(135deg, #1e3a5f, #152a45);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.2s, transform 0.15s;
+}
+.btn-scan:hover {
+  opacity: 0.86;
+  transform: translateY(-1px);
+}
+.btn-scan:active {
+  transform: translateY(0);
+}
+
+/* Scanner modal shell */
+.scanner-modal-content {
+  border: none;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+}
+.scanner-header {
+  background: linear-gradient(135deg, #1e3a5f, #152a45);
+  color: #fff;
+  border-bottom: none;
+  padding: 1rem 1.25rem;
+}
+.scanner-header .modal-title {
+  font-weight: 700;
+  font-size: 0.93rem;
+}
+
+/* Camera viewport */
+.qr-scan-region {
+  width: 100%;
+  min-height: 280px;
+  background: #000;
+  overflow: hidden;
+  position: relative;
+}
+.qr-scan-region video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+/* Hide html5-qrcode's internal file-scan UI */
+#qrScanRegion img,
+#qrScanRegion > div:last-of-type > div:last-of-type,
+#adminQrScanRegion img {
+  display: none !important;
+}
+
+/* Status bar below viewport */
+.scan-status-bar {
+  background: #f8fafc;
+  border-top: 1px solid #e5e7eb;
+  padding: 0.55rem 1rem;
+  font-size: 0.79rem;
+  color: #6b7280;
+  text-align: center;
+  min-height: 2.4rem;
+  transition: color 0.2s;
+}
+
+/* Helper hint in modal footer */
+.scan-hint {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin: 0;
+}

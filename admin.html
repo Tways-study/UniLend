@@ -168,11 +168,16 @@
 
       <!-- Overdue Reservations -->
       <section id="overdueSection" class="mb-5">
-        <div class="section-heading mb-1">
-          <div class="heading-icon overdue-icon">
-            <i class="bi bi-exclamation-triangle-fill"></i>
+        <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-1">
+          <div class="section-heading">
+            <div class="heading-icon overdue-icon">
+              <i class="bi bi-exclamation-triangle-fill"></i>
+            </div>
+            Overdue Reservations
           </div>
-          Overdue Reservations
+          <button class="btn-scan-return" id="scanReturnBtn" title="Scan equipment QR code to mark as returned">
+            <i class="bi bi-qr-code-scan me-1"></i>Scan to Return
+          </button>
         </div>
         <p class="section-desc mb-3">
           Approved equipment not yet returned past its reservation date.
@@ -196,9 +201,14 @@
 
       <!-- Inventory -->
       <section id="inventorySection">
-        <div class="section-heading mb-1">
-          <div class="heading-icon"><i class="bi bi-clipboard-data"></i></div>
-          Inventory
+        <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-1">
+          <div class="section-heading">
+            <div class="heading-icon"><i class="bi bi-clipboard-data"></i></div>
+            Inventory
+          </div>
+          <button class="btn-view-qr" id="viewQrCodesBtn" title="Generate printable QR codes for all equipment">
+            <i class="bi bi-qr-code me-1"></i>View QR Codes
+          </button>
         </div>
         <p class="section-desc mb-3">Current stock levels for all equipment.</p>
         <div class="panel-card">
@@ -306,7 +316,91 @@
       &copy; 2026 <a href="#">UniLend</a>. All rights reserved.
     </footer>
 
+    <!-- Admin QR Scanner Modal -->
+    <div
+      class="modal fade"
+      id="adminScannerModal"
+      tabindex="-1"
+      aria-hidden="true"
+      data-bs-backdrop="static"
+    >
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content scanner-modal-content">
+          <div class="modal-header scanner-header">
+            <h5 class="modal-title">
+              <i class="bi bi-qr-code-scan me-2"></i>Scan Equipment to Return
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+              style="filter: invert(1)"
+            ></button>
+          </div>
+          <div class="modal-body p-0">
+            <div id="adminQrScanRegion" class="qr-scan-region"></div>
+            <div id="adminScanStatus" class="scan-status-bar">
+              <i class="bi bi-camera me-1"></i>Initializing camera&hellip;
+            </div>
+          </div>
+          <div class="modal-footer border-0">
+            <p class="scan-hint me-auto">
+              <i class="bi bi-info-circle me-1"></i>Scan the QR code on the returned equipment
+            </p>
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              data-bs-dismiss="modal"
+            >Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QR Code Gallery Modal -->
+    <div
+      class="modal fade"
+      id="qrGalleryModal"
+      tabindex="-1"
+      aria-labelledby="qrGalleryLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="border:none;border-radius:1.1rem;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,0.25)">
+          <div class="modal-header" style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;border-bottom:none">
+            <h5 class="modal-title fw-bold fs-6" id="qrGalleryLabel">
+              <i class="bi bi-qr-code me-2"></i>Equipment QR Codes
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+              style="filter: invert(1)"
+            ></button>
+          </div>
+          <div class="modal-body" style="padding:1.5rem">
+            <p class="text-muted small mb-3">
+              <i class="bi bi-info-circle me-1"></i>
+              Download or print QR codes to label physical equipment. Students scan these to identify items.
+            </p>
+            <div id="qrGallery" class="qr-gallery"></div>
+          </div>
+          <div class="modal-footer border-0" style="padding:0.75rem 1.5rem 1.25rem">
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              data-bs-dismiss="modal"
+            >Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
     <script type="module" src="js/app.js"></script>
 
     <!-- Generic Confirm Modal (Deny / Mark Returned) -->
